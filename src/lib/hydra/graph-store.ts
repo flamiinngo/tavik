@@ -184,11 +184,40 @@ export class GraphStore {
     );
   }
 
-  /** Remove all Tavik state. Used by tests and by environment reset. */
+  /**
+   * Remove specific entities and every relationship attached to them.
+   *
+   * Deleted one id per statement rather than in a batch: HydraDB has no
+   * supported `UNWIND ... DETACH DELETE` form, and this is used for small,
+   * known sets — test fixtures and single-entity removals — not bulk teardown.
+   */
+  async deleteEntities(
+    urns: readonly EntityUrn[],
+    options: QueryOptions = {},
+  ): Promise<void> {
+    for (const urn of urns) {
+      await this.client.query("MATCH (n {id: $id}) DETACH DELETE n", {
+        ...options,
+        parameters: { id: urnToNodeId(urn) },
+      });
+    }
+  }
+
+  /**
+   * Remove all Tavik state for the whole graph.
+   *
+   * Destructive and deliberately blunt — this is environment reset, not test
+   * cleanup. Tests should delete their own fixtures with
+   * {@link deleteEntities}; wiping the label would also destroy real ingested
+   * state, and on a large graph the single statement is slow enough to time out.
+   */
   async clear(options: QueryOptions = {}): Promise<void> {
     const label = identifier(ENTITY_LABEL);
     // A predicate is required; HydraDB refuses an unqualified MATCH (n).
-    await this.client.query(`MATCH (n:${label.text}) DETACH DELETE n`, options);
+    await this.client.query(`MATCH (n:${label.text}) DETACH DELETE n`, {
+      timeoutMs: 120_000,
+      ...options,
+    });
   }
 
   // ── Reads ─────────────────────────────────────────────────────────────────

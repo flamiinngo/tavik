@@ -73,14 +73,28 @@ const pkg = entityUrn("Package", "itest-package");
 const release = entityUrn("Release", "itest-package", "1.0.0");
 const service = entityUrn("Service", "itest-checkout-api");
 
+/**
+ * Selector values unique to this test.
+ *
+ * The graph may already hold real ingested state — hundreds of genuine
+ * maintainers labelled `untrusted` and services in `production`. Using those
+ * values here would make the test assert against live data, and clearing the
+ * graph to isolate it would destroy that data and time out on a large tree. So
+ * the fixtures live in their own selector space and clean up only themselves.
+ */
+const ITEST_TRUST = "itest-untrusted";
+const ITEST_ENVIRONMENT = "itest-production";
+
 const entities: Entity[] = [
   { urn: publisher, kind: "Maintainer", name: "itest-publisher", source: "demo",
-    attributes: { trust: "untrusted" } },
+    attributes: { trust: ITEST_TRUST } },
   { urn: pkg, kind: "Package", name: "itest-package", source: "demo" },
   { urn: release, kind: "Release", name: "itest-package@1.0.0", source: "demo" },
   { urn: service, kind: "Service", name: "itest-checkout-api", source: "demo",
-    attributes: { environment: "production" } },
+    attributes: { environment: ITEST_ENVIRONMENT } },
 ];
+
+const allUrns = [publisher, pkg, release, service];
 
 const observedAt = 1_755_000_000_000;
 const relations: Relation[] = [
@@ -97,14 +111,14 @@ const boundary: SecurityBoundary = {
   source: {
     kind: "Maintainer",
     property: "trust",
-    value: "untrusted",
+    value: ITEST_TRUST,
     description: "publishers outside the trusted set",
   },
   target: {
     kind: "Service",
     property: "environment",
-    value: "production",
-    description: "services running in production",
+    value: ITEST_ENVIRONMENT,
+    description: "services running in this test's environment",
   },
   relations: ["MAINTAINS", "HAS_RELEASE", "SUPPLIES"],
   maxHops: 8,
@@ -121,8 +135,8 @@ describe.runIf(env)("the GREEN -> RED -> GREEN loop, against live HydraDB", () =
       return;
     }
 
-    // ── Arrange: a clean graph, then the supply chain ─────────────────────
-    await store.clear();
+    // ── Arrange: clear only this test's fixtures, then the supply chain ───
+    await store.deleteEntities(allUrns);
 
     const writtenEntities = await store.upsertEntities(entities);
     expect(writtenEntities).toBe(entities.length);
@@ -163,15 +177,17 @@ describe.runIf(env)("the GREEN -> RED -> GREEN loop, against live HydraDB", () =
     expect(restored.status).toBe("verified");
     expect(restored.paths).toHaveLength(0);
 
-    await store.clear();
+    await store.deleteEntities(allUrns);
   }, 60_000);
 
-  it("reports unknown rather than verified when the graph is empty", async () => {
+  it("reports unknown rather than verified when nothing matches the selectors", async () => {
     if (!reachable || !store || !client) return;
 
-    // Nothing ingested: Tavik has nothing to check from, which is not the same
-    // as having checked and found nothing.
-    await store.clear();
+    // Nothing ingested for these selectors: Tavik has nothing to check from,
+    // which is not the same as having checked and found nothing. Asserted
+    // against a selector space no data occupies, rather than by emptying the
+    // graph, so real ingested state is left intact.
+    await store.deleteEntities(allUrns);
     const result = await verifyBoundary(store, client, boundary);
 
     expect(result.status).toBe("unknown");
