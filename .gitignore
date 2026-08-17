@@ -30,8 +30,16 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files — .env.example is the documented template and must stay tracked.
 .env*
+!.env.example
+
+# HydraDB local volume: object store, cache, WALs, and the auth token.
+# Never commit this — it contains the bearer token for the local instance.
+/.hydradb-data/
+
+# Ingestion working directory: registry snapshots and downloaded manifests.
+/.tavik-cache/
 
 # vercel
 .vercel

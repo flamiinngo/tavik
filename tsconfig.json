@@ -1,6 +1,9 @@
 {
   "compilerOptions": {
-    "target": "ES2017",
+    // ES2022 rather than create-next-app's ES2017 default: node ids are derived
+    // from a 64-bit hash, which needs BigInt literals. Every runtime Tavik
+    // targets (Node 22, current browsers) supports ES2022 comfortably.
+    "target": "ES2022",
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,

@@ -1,0 +1,49 @@
+# HydraDB — the graph/state layer for Tavik.
+#
+# Tavik stores its security state graph here and delegates all path traversal to
+# HydraDB's native `algo.*` procedures. See docs/hydra.md for the data model and
+# for why traversal is not done in application code.
+#
+# Start with:  npm run hydra:up
+# The auth token file is created by scripts/hydra-setup.mjs before first boot.
+
+services:
+  hydradb:
+    image: ghcr.io/hydra-db/hydradb:latest
+    container_name: tavik-hydradb
+    restart: unless-stopped
+    ports:
+      - "7687:7687" # Bolt
+      - "8443:8443" # HTTP query API
+      - "9090:9090" # admin / metrics
+    volumes:
+      - ./.hydradb-data:/data
+    environment:
+      # Local single-node object store. `local` keeps the durable source of
+      # truth on the mounted volume instead of S3.
+      CLOUD_PROVIDER: local
+      LOCAL_PATH: /data/store
+
+      GRAPH_NAMESPACE: default
+      GRAPH_ID: default
+      GRAPH_CELL_ID: cell-0
+      GRAPH_CELLS: cell-0
+      GRAPH_NODE_ID: node-0
+      GRAPH_BOLT_NODE_ADDRESSES: node-0=127.0.0.1:7687
+      GRAPH_ADVERTISED_BOLT_ADDR: 127.0.0.1:7687
+
+      GRAPH_DATA_CACHE_DIR: /data/cache
+      GRAPH_AUTH_TOKEN_FILE: /data/auth-token
+
+      # Plaintext HTTP is acceptable for a loopback-only development instance.
+      # Never enable this for a deployment reachable off-host.
+      GRAPH_ALLOW_PLAINTEXT: "true"
+
+      # HydraDB's traversal engine recurses deeply; the image documents this
+      # stack size as the supported minimum.
+      RUST_MIN_STACK: "33554432"
+    # No container healthcheck: the HydraDB image is minimal and ships neither
+    # curl nor wget, so an in-container probe cannot work. Readiness is checked
+    # from the host by scripts/hydra-wait.mjs, which polls the real query API —
+    # a better signal anyway, since it proves the endpoint Tavik actually uses
+    # is answering, not merely that a port is open.
