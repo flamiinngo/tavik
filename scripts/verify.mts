@@ -18,6 +18,7 @@ import { fileURLToPath } from "node:url";
 import type { SecurityBoundary } from "../src/lib/domain/boundary";
 import { HydraClient } from "../src/lib/hydra/client";
 import { GraphStore } from "../src/lib/hydra/graph-store";
+import { ChangeLog } from "../src/lib/engine/change-log";
 import { verifyBoundary } from "../src/lib/engine/verify";
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -47,6 +48,7 @@ const client = new HydraClient({
   timeoutMs: 120_000,
 });
 const store = new GraphStore(client);
+const changeLog = new ChangeLog(client);
 
 const boundary: SecurityBoundary = {
   id: "production-isolation",
@@ -82,13 +84,35 @@ console.log(`\n  ${boundary.name}`);
 console.log(`  "${boundary.statement}"\n`);
 console.log(`  checking up to ${boundary.maxHops} hops via ${boundary.relations.join(" / ")}...\n`);
 
+// What the last run concluded, so this one can say what changed.
+const previous = await changeLog.latestVerification(boundary.id);
+
 const result = await verifyBoundary(store, client, boundary);
+
+// Record before printing: the log is the product's memory, and a run that
+// printed but did not persist would leave a hole in the timeline.
+const recorded = await changeLog.recordVerification(boundary, result, previous);
 
 console.log(`  ${STATUS_LABEL[result.status] ?? result.status}`);
 console.log(
   `  ${result.sourceCount} source entities, ${result.targetCount} targets, ` +
     `${result.elapsedMs.toFixed(0)}ms in HydraDB\n`,
 );
+
+const transition = recorded.find((e) => e.type === "boundary.status_changed");
+if (transition && transition.detail?.kind === "status_change") {
+  console.log(`  CHANGED  ${transition.detail.from} -> ${transition.detail.to}`);
+  console.log(`  ${transition.summary}`);
+  if (transition.detail.appearedPaths.length > 0) {
+    console.log(`  ${transition.detail.appearedPaths.length} path(s) appeared since the last run.`);
+  }
+  if (transition.detail.resolvedPaths.length > 0) {
+    console.log(`  ${transition.detail.resolvedPaths.length} path(s) no longer exist.`);
+  }
+  console.log("");
+} else if (previous) {
+  console.log(`  No change since the last run (still ${previous.status}).\n`);
+}
 
 if (result.failureReason) {
   console.log(`  ${result.failureReason}\n`);
@@ -119,3 +143,14 @@ console.log(
   "  Note: 'untrusted' means the publishing account is not on this workspace's\n" +
     "  allowlist. It is not a claim that any account is compromised or malicious.\n",
 );
+
+// The recorded history, which is what the timeline screen will render.
+const history = await changeLog.list({ boundaryId: boundary.id, limit: 8 });
+if (history.length > 1) {
+  console.log("  TAVIK WORK LOG\n");
+  for (const entry of history) {
+    const time = new Date(entry.at).toISOString().replace("T", " ").slice(0, 19);
+    console.log(`    ${time}  ${entry.summary}`);
+  }
+  console.log("");
+}
