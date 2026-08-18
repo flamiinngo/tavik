@@ -14,8 +14,13 @@ export default async function BoundariesPage() {
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center px-6 lg:px-8">
+      <header className="flex h-16 shrink-0 items-center justify-between px-6 lg:px-8">
         <h1 className="text-[15px] font-semibold tracking-tight text-ink">Your rules</h1>
+        <Link href="/app/boundaries/new">
+          <Button size="sm" variant="primary">
+            Write a rule
+          </Button>
+        </Link>
       </header>
 
       <main className="w-full space-y-5 px-6 pb-12 lg:px-8">
@@ -52,7 +57,11 @@ export default async function BoundariesPage() {
               illustration={<Tavik pose="standby" size="lg" alt="" />}
               title="No rules yet"
               description="Tell Tavik what must never happen, and it will start proving it — continuously."
-              action={<Button variant="primary">Write your first rule</Button>}
+              action={
+                <Link href="/app/boundaries/new">
+                  <Button variant="primary">Write your first rule</Button>
+                </Link>
+              }
             />
           ) : (
             <ul className="space-y-1 p-3">
