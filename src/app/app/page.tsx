@@ -17,6 +17,17 @@ export const dynamic = "force-dynamic";
  *  of changes genuinely close the boundary. */
 const DEMO_PUBLISHER = "sebmarkbage";
 
+/** A label-and-figure pair. Label first, because the reader needs to know what
+ *  the number is before the number means anything. */
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3">
+      <dt className="text-[12.5px] text-ink-subtle">{label}</dt>
+      <dd className="shrink-0 text-[14px] font-medium tabular-nums text-ink">{value}</dd>
+    </div>
+  );
+}
+
 export default async function OverviewPage() {
   const [state, workLog, quarantined] = await Promise.all([
     loadSecurityState(),
@@ -105,18 +116,31 @@ export default async function OverviewPage() {
                 </div>
               </div>
 
-              <div className="w-full lg:w-56">
+              {/* The right column carries real substance rather than a lone
+                  progress bar in a wide empty space. */}
+              <div className="w-full space-y-5 rounded-md bg-inset p-5 lg:w-64">
                 <HealthBar counts={state.counts} />
-                {openCount > 0 ? (
-                  <p className="mt-4 text-[13px] leading-relaxed text-ink-subtle">
-                    {openCount} of your {state.boundaries.length} rules {openCount === 1 ? "has" : "have"}{" "}
-                    a way through right now.
-                  </p>
-                ) : (
-                  <p className="mt-4 text-[13px] leading-relaxed text-ink-subtle">
-                    Every rule you&apos;ve written is currently holding.
-                  </p>
-                )}
+
+                <dl className="space-y-3 border-t border-line pt-4">
+                  <Stat
+                    label="Publishers who can reach you"
+                    value={verification.sourceCount.toLocaleString()}
+                  />
+                  <Stat
+                    label="Things being watched"
+                    value={(state.entityCount ?? 0).toLocaleString()}
+                  />
+                  <Stat
+                    label="Time to prove it"
+                    value={`${verification.elapsedMs.toFixed(0)}ms`}
+                  />
+                </dl>
+
+                <p className="border-t border-line pt-4 text-[12.5px] leading-relaxed text-ink-subtle">
+                  {openCount > 0
+                    ? `${openCount} of your ${state.boundaries.length} rules ${openCount === 1 ? "has" : "have"} a way through right now.`
+                    : "Every rule you've written is currently holding."}
+                </p>
               </div>
             </div>
           </Card>
@@ -130,8 +154,8 @@ export default async function OverviewPage() {
 
         {/* ── Graph + weakest links ───────────────────────────────────────── */}
         {subgraph && subgraph.nodes.length > 0 ? (
-          <div className="grid gap-5 xl:grid-cols-[1fr_360px]">
-            <Card className="min-w-0">
+          <div className="grid items-stretch gap-5 xl:grid-cols-[1fr_360px]">
+            <Card className="flex min-w-0 flex-col">
               <CardHeader
                 title="How they get in"
                 subtitle="Everyone on the left can reach your service on the right. Hover any dot to follow only its routes."
@@ -141,7 +165,7 @@ export default async function OverviewPage() {
               </div>
             </Card>
 
-            <Card>
+            <Card className="flex flex-col">
               <CardHeader
                 title="Weakest links"
                 subtitle="Cut the top one and you remove the most risk with a single change."
@@ -177,7 +201,7 @@ export default async function OverviewPage() {
                 </Link>
               }
             />
-            <div className="grid gap-4 px-6 pb-6 md:grid-cols-2 2xl:grid-cols-3">
+            <div className="grid items-stretch gap-4 px-6 pb-6 md:grid-cols-2 2xl:grid-cols-3">
               {verification.paths
                 .slice()
                 .sort((a, b) => a.length - b.length)
@@ -185,7 +209,7 @@ export default async function OverviewPage() {
                 .map((path, index) => (
                   <div
                     key={index}
-                    className="animate-rise rounded-md bg-inset p-5"
+                    className="animate-rise h-full rounded-md bg-inset p-5"
                     style={{ animationDelay: `${index * 70}ms` }}
                   >
                     <PathTrace path={path} ordinal={index + 1} />
@@ -195,9 +219,12 @@ export default async function OverviewPage() {
           </Card>
         ) : null}
 
-        {/* ── Rules + work log ────────────────────────────────────────────── */}
-        <div className="grid gap-5 lg:grid-cols-2">
-          <Card>
+        {/* ── Rules + work log ──────────────────────────────────────────────
+            `items-stretch` so the two cards match height. Letting each size to
+            its own content left one full and the other two-thirds empty beside
+            it, which is most of what made the page look like scattered boxes. */}
+        <div className="grid items-stretch gap-5 lg:grid-cols-2">
+          <Card className="flex flex-col">
             <CardHeader
               title="Your rules"
               subtitle="Things you've said must never happen."
@@ -228,7 +255,7 @@ export default async function OverviewPage() {
             </ul>
           </Card>
 
-          <Card>
+          <Card className="flex flex-col">
             <CardHeader
               title="What Tavik has been doing"
               subtitle="It works whether or not anyone is watching."

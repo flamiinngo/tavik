@@ -42,23 +42,25 @@ export function DemoControl({
 
   return (
     <Card className="overflow-hidden">
-      <div className="flex flex-wrap items-center justify-between gap-4 p-6">
-        <div className="min-w-0">
-          <span className="inline-flex items-center rounded-pill bg-accent-soft px-2.5 py-1 text-[12px] font-medium text-accent">
-            Try it yourself
-          </span>
-          <h2 className="mt-3 text-[19px] font-semibold tracking-tight text-ink">
+      {/* A compact strip rather than a full card. This is an invitation, not a
+          section — giving it the height of a real panel left most of it empty
+          and made the page read as a pile of unrelated boxes. */}
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-4 px-6 py-5">
+        <span className="inline-flex shrink-0 items-center rounded-pill bg-accent-soft px-2.5 py-1 text-[12px] font-medium text-accent">
+          Try it yourself
+        </span>
+
+        <div className="min-w-0 flex-1">
+          <h2 className="text-[16px] font-semibold tracking-tight text-ink">
             Watch a rule break, then heal
           </h2>
-          <p className="mt-1.5 max-w-xl text-[14px] leading-relaxed text-ink-soft">
-            Put <span className="font-medium text-ink">{publisher}</span> under review —
-            what a security team does when it wants to pause a publisher and look
-            properly. Tavik finds every route their code already takes into your
-            service. This makes a real change and re-checks for real.
+          <p className="mt-1 text-[13.5px] leading-relaxed text-ink-soft">
+            Put <span className="font-medium text-ink">{publisher}</span> under review, the
+            way a team pauses a publisher to look properly. Real change, real re-check.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex shrink-0 flex-wrap items-center gap-3">
           {isQuarantined ? (
             <Button variant="secondary" disabled={pending} onClick={() => run("untrusted")}>
               {pending ? "Re-checking…" : "Finish the review"}
