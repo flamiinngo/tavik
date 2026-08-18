@@ -51,7 +51,10 @@ while (Date.now() - startedAt < TIMEOUT_MS) {
       },
       body: JSON.stringify({
         cell_id: env.HYDRA_CELL_ID ?? "cell-0",
-        query: "RETURN 1 AS ok",
+        // A bare `RETURN 1` is refused: the server only executes
+        // `MATCH ... RETURN`. Counting a label works on an empty graph too, so
+        // readiness does not depend on anything having been ingested yet.
+        query: "MATCH (n:Entity) RETURN count(*) AS total",
       }),
     });
 

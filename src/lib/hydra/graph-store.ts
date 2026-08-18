@@ -185,6 +185,47 @@ export class GraphStore {
   }
 
   /**
+   * List every relationship of one type, as `from|to` URN pairs.
+   *
+   * This is what lets ingestion be incremental. HydraDB refuses `MERGE` for
+   * batched edge writes, so re-running an ingestion with `CREATE` would
+   * duplicate every edge — and duplicates are not harmless: they do not change
+   * *whether* a path exists, but they multiply the routes the traversal must
+   * enumerate.
+   *
+   * The obvious fix — delete every edge of the type and rewrite it — was tried
+   * and is worse. HydraDB is log-structured, and deleting several thousand edges
+   * left enough tombstones to slow *every* read: a boundary check went from
+   * 420ms to 31s and timed out, and writes began failing with server errors. A
+   * clean rebuild restored 420ms, confirming the churn rather than the data
+   * volume was the cause.
+   *
+   * So ingestion reads what exists, and writes only the difference. Which is
+   * also strictly better product behaviour: the difference *is* the change, and
+   * that is what the change log wants to record.
+   */
+  async listRelationsOfKind(
+    kind: RelationKind,
+    options: QueryOptions = {},
+  ): Promise<Set<string>> {
+    const label = identifier(ENTITY_LABEL);
+    const relType = identifier(kind);
+    const result = await this.client.query<{ from_urn: string; to_urn: string }>(
+      `MATCH (a:${label.text})-[r:${relType.text}]->(b:${label.text})
+       RETURN a.urn AS from_urn, b.urn AS to_urn`,
+      { timeoutMs: 120_000, ...options },
+    );
+
+    const pairs = new Set<string>();
+    for (const row of result.rows) {
+      if (typeof row.from_urn === "string" && typeof row.to_urn === "string") {
+        pairs.add(`${row.from_urn}|${row.to_urn}`);
+      }
+    }
+    return pairs;
+  }
+
+  /**
    * Remove specific entities and every relationship attached to them.
    *
    * Deleted one id per statement rather than in a batch: HydraDB has no

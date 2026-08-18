@@ -136,7 +136,10 @@ export function Tavik({
       width={width}
       style={{ width, height: "auto" }}
       priority={priority}
-      placeholder="blur"
+      // A blur placeholder on a 28px avatar costs more than the image it stands
+      // in for, so it is only used where the character is large enough for the
+      // load-in to actually be visible.
+      placeholder={width >= 96 ? "blur" : undefined}
       className={className}
       draggable={false}
     />

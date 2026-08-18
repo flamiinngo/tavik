@@ -1,26 +1,174 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/**
+ * Tavik design tokens.
+ *
+ * Dark only, deliberately. This is a tool security engineers keep open beside a
+ * terminal all day, and a light mode nobody asked for is surface area that
+ * degrades rather than an accessibility win.
+ *
+ * The palette is nearly monochrome. Colour is reserved for state — verified,
+ * violated, investigating, unknown — so that when something *is* coloured it
+ * means something. That restraint is the whole visual argument: a security
+ * product earns trust by being quiet until it has a reason not to be.
+ */
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+@theme {
+  /* ── Surfaces ─────────────────────────────────────────────────────────────
+     Five steps, each a deliberate elevation. Anything that needs a sixth is a
+     layout problem, not a colour problem. */
+  --color-base: #070a0f;
+  --color-surface: #0b1017;
+  --color-raised: #0f151e;
+  --color-overlay: #121a24;
+  --color-inset: #05080c;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  /* ── Borders ──────────────────────────────────────────────────────────────
+     Low-opacity white rather than a fixed grey, so borders sit correctly on
+     every surface step without a variant per elevation. */
+  --color-line: oklch(1 0 0 / 7%);
+  --color-line-strong: oklch(1 0 0 / 13%);
+  --color-line-focus: oklch(1 0 0 / 22%);
+
+  /* ── Text ─────────────────────────────────────────────────────────────────
+     Four levels. `muted` is for supporting copy; `subtle` is for metadata that
+     should recede until looked for. */
+  --color-ink: #e8edf4;
+  --color-ink-muted: #9aa7b8;
+  --color-ink-subtle: #64748b;
+  --color-ink-faint: #3f4a5a;
+
+  /* ── Accent ───────────────────────────────────────────────────────────────
+     Cyan, matching the mascot's lighting. Used for focus, selection and the
+     active path — never as decoration. */
+  --color-accent: #22d3ee;
+  --color-accent-strong: #06b6d4;
+  --color-accent-dim: oklch(0.78 0.13 205 / 14%);
+
+  /* ── Status ───────────────────────────────────────────────────────────────
+     Restrained on purpose. These are the only saturated colours in the product,
+     and they carry the entire severity signal, so they must never compete with
+     anything decorative. */
+  --color-verified: #34d399;
+  --color-verified-dim: oklch(0.78 0.15 163 / 12%);
+  --color-violated: #f87171;
+  --color-violated-dim: oklch(0.71 0.17 22 / 13%);
+  --color-investigating: #fbbf24;
+  --color-investigating-dim: oklch(0.82 0.15 82 / 13%);
+  --color-unknown: #64748b;
+  --color-unknown-dim: oklch(0.55 0.03 250 / 14%);
+
+  /* ── Typography ───────────────────────────────────────────────────────────
+     Monospace is reserved for identifiers: package names, versions, URNs,
+     timestamps, hashes. Using it for prose is the single fastest way to make a
+     technical product look like a toy. */
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", monospace;
+
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+  --text-2xs--letter-spacing: 0.04em;
+
+  /* ── Radii ────────────────────────────────────────────────────────────────
+     Small and consistent. Nothing here is rounded enough to read as playful. */
+  --radius-xs: 3px;
+  --radius-sm: 5px;
+  --radius-md: 7px;
+  --radius-lg: 10px;
+
+  /* ── Elevation ────────────────────────────────────────────────────────────
+     Shadows are nearly invisible; separation comes from surface steps and
+     hairline borders. */
+  --shadow-panel: 0 1px 2px oklch(0 0 0 / 40%);
+  --shadow-overlay: 0 16px 40px -12px oklch(0 0 0 / 70%);
+
+  /* ── Motion ───────────────────────────────────────────────────────────────
+     Motion is used to signal *liveness* — that Tavik is watching right now —
+     and nothing else. Nothing bounces, nothing springs. A security product that
+     feels playful in its transitions undermines the thing it is asserting. */
+  --ease-out-quick: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* A slow pulse on a live status indicator: the product is running, not a
+     screenshot. Deliberately subtle and long-period so it never nags. */
+  --animate-breathe: breathe 2.8s ease-in-out infinite;
+  @keyframes breathe {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.45; }
   }
+
+  /* Path evidence draws in on load, in the direction influence travels, so the
+     eye is led from cause to consequence rather than landing on a static wall. */
+  --animate-trace-in: trace-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  @keyframes trace-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: none; }
+  }
+
+  --animate-sweep: sweep 2.4s linear infinite;
+  @keyframes sweep {
+    from { background-position: -160% 0; }
+    to { background-position: 260% 0; }
+  }
+
+  /* ── Emphasis ─────────────────────────────────────────────────────────────
+     Glow is reserved for live state — a violated boundary, an active scan. It
+     is never decoration, which is exactly what keeps it meaningful when it does
+     appear. */
+  --shadow-glow-violated: 0 0 0 1px oklch(0.71 0.17 22 / 22%), 0 0 28px -6px oklch(0.71 0.17 22 / 45%);
+  --shadow-glow-verified: 0 0 0 1px oklch(0.78 0.15 163 / 20%), 0 0 28px -8px oklch(0.78 0.15 163 / 35%);
+  --shadow-glow-accent: 0 0 0 1px oklch(0.78 0.13 205 / 22%), 0 0 32px -8px oklch(0.78 0.13 205 / 40%);
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html {
+  background-color: var(--color-base);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--color-base);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Identifiers get slightly tightened tracking so long URNs stay scannable. */
+.font-mono,
+code,
+kbd,
+samp {
+  font-variant-ligatures: none;
+  letter-spacing: -0.01em;
+}
+
+/* A single visible focus treatment everywhere, so keyboard navigation is never
+   ambiguous. Removing it is not permitted anywhere in this product. */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
+::selection {
+  background-color: var(--color-accent-dim);
+  color: var(--color-ink);
+}
+
+/* Scrollbars, restrained to match the surfaces they sit on. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line-strong) transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

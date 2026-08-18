@@ -52,7 +52,10 @@ export type IngestStage =
 export interface IngestReport {
   readonly serviceUrn: EntityUrn;
   readonly entitiesWritten: number;
+  /** Relationships newly created by this run. */
   readonly relationsWritten: number;
+  /** Relationships that already existed and were left untouched. */
+  readonly relationsUnchanged: number;
   readonly packagesResolved: number;
   readonly maintainersFound: number;
   readonly untrustedMaintainers: number;
@@ -118,13 +121,42 @@ export async function ingestProject(
   options.onProgress?.("writing-entities", entities.length, entities.length);
 
   options.onProgress?.("writing-relations", 0, relations.length);
-  const relationsWritten = await store.insertRelations(relations, { signal: options.signal });
+
+  // Write only the edges that are not already present.
+  //
+  // HydraDB refuses `MERGE` for batched edge writes, so a re-run using `CREATE`
+  // would duplicate every edge. The obvious alternative — delete each type and
+  // rewrite it — was tried and is far worse: HydraDB is log-structured, and
+  // deleting several thousand edges left enough tombstones to slow every
+  // subsequent read, taking a boundary check from 420ms to 31s until it timed
+  // out and reported `unknown`. A clean rebuild restored 420ms, confirming the
+  // churn rather than the data volume was the cause.
+  //
+  // So ingestion diffs instead. It is also better product behaviour: the
+  // difference is the change, and the change is what the log wants to record.
+  const kinds = new Set(relations.map((relation) => relation.kind));
+  const existing = new Map<string, Set<string>>();
+  for (const kind of kinds) {
+    existing.set(kind, await store.listRelationsOfKind(kind, { signal: options.signal }));
+  }
+
+  const newRelations = relations.filter((relation) => {
+    const seen = existing.get(relation.kind);
+    return !seen?.has(`${relation.from}|${relation.to}`);
+  });
+
+  const relationsWritten = await store.insertRelations(newRelations, {
+    signal: options.signal,
+  });
   options.onProgress?.("writing-relations", relations.length, relations.length);
+
+  const relationsUnchanged = relations.length - newRelations.length;
 
   return {
     serviceUrn: projection.serviceUrn,
     entitiesWritten,
     relationsWritten,
+    relationsUnchanged,
     packagesResolved: maintainers.stats.packagesResolved,
     maintainersFound: maintainers.stats.maintainersFound,
     untrustedMaintainers: maintainers.stats.untrustedMaintainers,

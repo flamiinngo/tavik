@@ -1,0 +1,175 @@
+
+> tavik@0.1.0 dev
+> next dev
+
+⚠ Port 3000 is in use by process 30392, using available port 3001 instead.
+▲ Next.js 16.3.1 (Turbopack)
+- Local:         http://localhost:3001
+- Network:       http://192.168.1.128:3001
+- Environments: .env.local
+✓ Ready in 7.2s
+✓ Running next.config.ts took 390ms
+
+○ Compiling / ...
+ GET / 200 in 15.2s (next.js: 14.7s, application-code: 521ms)
+[browser] Sender: Failed to get initial state. Please report this bug. {
+  method: [32m'sender_getProviderState'[39m,
+  notificationId: [33m1787012430862816[39m,
+  params: [],
+  response: { error: [32m'No account exist'[39m },
+  type: [32m'sender-wallet-providerResult'[39m
+} 
+    at <unknown> (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:14719)
+    at d (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:619)
+    at Generator.<anonymous> (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:1965)
+    at Generator.next (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:1048)
+    at o (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:7546)
+    at a (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:7749) (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:14719)
+ GET / 200 in 1167ms (next.js: 699ms, application-code: 469ms)
+[browser] Sender: Failed to get initial state. Please report this bug. {
+  method: [32m'sender_getProviderState'[39m,
+  notificationId: [33m1787015295464180[39m,
+  params: [],
+  response: { error: [32m'No account exist'[39m },
+  type: [32m'sender-wallet-providerResult'[39m
+} 
+    at <unknown> (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:14719)
+    at d (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:619)
+    at Generator.<anonymous> (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:1965)
+    at Generator.next (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:1048)
+    at o (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:7546)
+    at a (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:7749) (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:14719)
+Image with src "/_next/static/media/tavik-profile.16_j0y_5k-ue6.png" is smaller than 40x40. Consider removing the "placeholder" property to improve performance.
+ GET /app 200 in 21.4s (next.js: 2.7s, application-code: 18.7s)
+ GET / 200 in 157ms (next.js: 41ms, application-code: 116ms)
+ GET / 200 in 184ms (next.js: 47ms, application-code: 137ms)
+[browser] Sender: Failed to get initial state. Please report this bug. {
+  method: [32m'sender_getProviderState'[39m,
+  notificationId: [33m1787015439474192[39m,
+  params: [],
+  response: { error: [32m'No account exist'[39m },
+  type: [32m'sender-wallet-providerResult'[39m
+} 
+    at <unknown> (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:14719)
+    at d (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:619)
+    at Generator.<anonymous> (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:1965)
+    at Generator.next (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:1048)
+    at o (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:7546)
+    at a (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:7749) (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:14719)
+ GET /app 200 in 13.7s (next.js: 32ms, application-code: 13.7s)
+ GET / 200 in 92ms (next.js: 19ms, application-code: 73ms)
+ GET / 200 in 84ms (next.js: 16ms, application-code: 68ms)
+ GET / 200 in 277ms (next.js: 77ms, application-code: 200ms)
+[browser] Sender: Failed to get initial state. Please report this bug. {
+  method: [32m'sender_getProviderState'[39m,
+  notificationId: [33m1787015705850178[39m,
+  params: [],
+  response: { error: [32m'No account exist'[39m },
+  type: [32m'sender-wallet-providerResult'[39m
+} 
+    at <unknown> (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:14719)
+    at d (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:619)
+    at Generator.<anonymous> (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:1965)
+    at Generator.next (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:1048)
+    at o (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:7546)
+    at a (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:7749) (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:14719)
+ GET /app 200 in 33.0s (next.js: 203ms, application-code: 32.8s)
+ GET /app 200 in 24.1s (next.js: 9ms, application-code: 24.1s)
+ GET /app 200 in 32.0s (next.js: 90ms, application-code: 31.9s)
+ GET / 200 in 140ms (next.js: 32ms, application-code: 108ms)
+ GET / 200 in 909ms (next.js: 265ms, application-code: 644ms)
+[browser] Sender: Failed to get initial state. Please report this bug. {
+  method: [32m'sender_getProviderState'[39m,
+  notificationId: [33m1787017623436741[39m,
+  params: [],
+  response: { error: [32m'No account exist'[39m },
+  type: [32m'sender-wallet-providerResult'[39m
+} 
+    at <unknown> (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:14719)
+    at d (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:619)
+    at Generator.<anonymous> (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:1965)
+    at Generator.next (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:1048)
+    at o (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:7546)
+    at a (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:7749) (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:14719)
+ GET / 200 in 580ms (next.js: 96ms, application-code: 484ms)
+[browser] Sender: Failed to get initial state. Please report this bug. {
+  method: [32m'sender_getProviderState'[39m,
+  notificationId: [33m1787017842184024[39m,
+  params: [],
+  response: { error: [32m'No account exist'[39m },
+  type: [32m'sender-wallet-providerResult'[39m
+} 
+    at <unknown> (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:14719)
+    at d (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:619)
+    at Generator.<anonymous> (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:1965)
+    at Generator.next (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:1048)
+    at o (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:7546)
+    at a (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:7749) (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:14719)
+[browser] Sender: Failed to get initial state. Please report this bug. {
+  method: [32m'sender_getProviderState'[39m,
+  notificationId: [33m1787017865987186[39m,
+  params: [],
+  response: { error: [32m'No account exist'[39m },
+  type: [32m'sender-wallet-providerResult'[39m
+} 
+    at <unknown> (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:14719)
+    at d (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:619)
+    at Generator.<anonymous> (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:1965)
+    at Generator.next (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:1048)
+    at o (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:7546)
+    at a (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:7749) (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:14719)
+ GET /app 200 in 11.5s (next.js: 110ms, application-code: 11.4s)
+[browser] Sender: Failed to get initial state. Please report this bug. {
+  method: [32m'sender_getProviderState'[39m,
+  notificationId: [33m1787017974610114[39m,
+  params: [],
+  response: { error: [32m'No account exist'[39m },
+  type: [32m'sender-wallet-providerResult'[39m
+} 
+    at <unknown> (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:14719)
+    at d (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:619)
+    at Generator.<anonymous> (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:1965)
+    at Generator.next (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:1048)
+    at o (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:7546)
+    at a (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:7749) (chrome-extension://epapihdplajcdnnkdeiahlgigofloibg/script.bundle.js:52:14719)
+  Reload env: .env.local
+ GET /app 200 in 1616ms (next.js: 1051ms, application-code: 565ms)
+ GET /app 200 in 196ms (next.js: 35ms, application-code: 161ms)
+ GET /app/boundaries 404 in 2.4s (next.js: 2.3s, application-code: 88ms)
+ GET /app/boundaries 404 in 336ms (next.js: 43ms, application-code: 293ms)
+ GET /app 200 in 1696ms (next.js: 232ms, application-code: 1464ms)
+ GET /app 200 in 633ms (next.js: 10ms, application-code: 623ms)
+ GET /app 200 in 1620ms (next.js: 114ms, application-code: 1506ms)
+[browser] Image with src "/_next/static/media/tavik-profile.16_j0y_5k-ue6.png" has either width or height modified, but not the other. If you use CSS to change the size of your image, also include the styles 'width: "auto"' or 'height: "auto"' to maintain the aspect ratio.
+✓ Compiled in 560ms
+ GET /app 200 in 148ms (next.js: 42ms, application-code: 106ms)
+ GET /app 200 in 1752ms (next.js: 1005ms, application-code: 747ms)
+ GET /app 200 in 514ms (next.js: 18ms, application-code: 495ms)
+ GET /app 200 in 502ms (next.js: 12ms, application-code: 490ms)
+ GET /app 200 in 407ms (next.js: 13ms, application-code: 394ms)
+ GET /app 200 in 399ms (next.js: 14ms, application-code: 385ms)
+ GET /app 200 in 367ms (next.js: 14ms, application-code: 353ms)
+ GET /app 200 in 421ms (next.js: 13ms, application-code: 408ms)
+ GET /app 200 in 333ms (next.js: 11ms, application-code: 322ms)
+ GET /app 200 in 255ms (next.js: 16ms, application-code: 240ms)
+ GET /app 200 in 176ms (next.js: 13ms, application-code: 163ms)
+ GET /app 200 in 104ms (next.js: 14ms, application-code: 90ms)
+✓ Compiled in 491ms
+ GET /app 200 in 845ms (next.js: 407ms, application-code: 438ms)
+ GET /app 200 in 423ms (next.js: 9ms, application-code: 414ms)
+ GET /app 200 in 457ms (next.js: 10ms, application-code: 447ms)
+ GET /app 200 in 477ms (next.js: 7ms, application-code: 470ms)
+ GET /app 200 in 492ms (next.js: 8ms, application-code: 484ms)
+ GET /app 200 in 441ms (next.js: 10ms, application-code: 431ms)
+ GET /app 200 in 463ms (next.js: 16ms, application-code: 447ms)
+ GET /app 200 in 373ms (next.js: 13ms, application-code: 361ms)
+ GET /app 200 in 288ms (next.js: 12ms, application-code: 276ms)
+ GET /app 200 in 210ms (next.js: 12ms, application-code: 198ms)
+ GET /app 200 in 142ms (next.js: 9ms, application-code: 133ms)
+ GET /app 200 in 79ms (next.js: 11ms, application-code: 67ms)
+✓ Compiled in 188ms
+ GET /app 200 in 242ms (next.js: 78ms, application-code: 164ms)
+ GET /app 200 in 1991ms (next.js: 22ms, application-code: 1969ms)
+ GET /app 200 in 1315ms (next.js: 48ms, application-code: 1267ms)
+[browser] Image with src "/_next/static/media/tavik-profile.16_j0y_5k-ue6.png" has either width or height modified, but not the other. If you use CSS to change the size of your image, also include the styles 'width: "auto"' or 'height: "auto"' to maintain the aspect ratio.
+ GET /app 200 in 486ms (next.js: 209ms, application-code: 277ms)

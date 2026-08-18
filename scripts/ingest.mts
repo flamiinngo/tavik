@@ -107,7 +107,12 @@ process.stdout.write("\n\n");
 console.log("Security state written to HydraDB");
 console.log(`  service            ${report.serviceUrn}`);
 console.log(`  entities           ${report.entitiesWritten.toLocaleString()}`);
-console.log(`  relationships      ${report.relationsWritten.toLocaleString()}`);
+console.log(
+  `  relationships      ${report.relationsWritten.toLocaleString()} new` +
+    (report.relationsUnchanged > 0
+      ? `, ${report.relationsUnchanged.toLocaleString()} unchanged`
+      : ""),
+);
 console.log(`  packages resolved  ${report.packagesResolved.toLocaleString()}`);
 console.log(`  publishers found   ${report.maintainersFound.toLocaleString()}`);
 console.log(`  off-allowlist      ${report.untrustedMaintainers.toLocaleString()}`);

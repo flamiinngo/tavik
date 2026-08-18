@@ -84,20 +84,38 @@ console.log(`\n  ${boundary.name}`);
 console.log(`  "${boundary.statement}"\n`);
 console.log(`  checking up to ${boundary.maxHops} hops via ${boundary.relations.join(" / ")}...\n`);
 
-// What the last run concluded, so this one can say what changed.
-const previous = await changeLog.latestVerification(boundary.id);
+// What the last run concluded, so this one can say what changed. A failure to
+// read history must not stop the check from running.
+let previous = null;
+try {
+  previous = await changeLog.latestVerification(boundary.id);
+} catch (error) {
+  console.log(
+    `  (could not read previous history: ${error instanceof Error ? error.message : error})\n`,
+  );
+}
 
 const result = await verifyBoundary(store, client, boundary);
 
-// Record before printing: the log is the product's memory, and a run that
-// printed but did not persist would leave a hole in the timeline.
-const recorded = await changeLog.recordVerification(boundary, result, previous);
+// Recording is secondary to reporting. The answer is what the operator asked
+// for, and a failure to persist the audit entry must never withhold it.
+let recorded: Awaited<ReturnType<typeof changeLog.recordVerification>> = [];
+let recordError: string | null = null;
+try {
+  recorded = await changeLog.recordVerification(boundary, result, previous);
+} catch (error) {
+  recordError = error instanceof Error ? error.message : String(error);
+}
 
 console.log(`  ${STATUS_LABEL[result.status] ?? result.status}`);
 console.log(
   `  ${result.sourceCount} source entities, ${result.targetCount} targets, ` +
     `${result.elapsedMs.toFixed(0)}ms in HydraDB\n`,
 );
+
+if (recordError) {
+  console.log(`  (result not written to the change log: ${recordError})\n`);
+}
 
 const transition = recorded.find((e) => e.type === "boundary.status_changed");
 if (transition && transition.detail?.kind === "status_change") {
