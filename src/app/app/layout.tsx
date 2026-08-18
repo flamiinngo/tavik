@@ -23,8 +23,9 @@ const SECTIONS: readonly {
     heading: "State",
     items: [
       { href: "/app", label: "Overview", ready: true },
-      { href: "/app/boundaries", label: "Boundaries", ready: true },
+      { href: "/app/boundaries", label: "Rules", ready: true },
       { href: "/app/work-log", label: "Work log", ready: true },
+      { href: "/app/onboarding", label: "Scan a project", ready: true },
     ],
   },
 ];
