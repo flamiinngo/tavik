@@ -17,13 +17,20 @@ export const dynamic = "force-dynamic";
  *  of changes genuinely close the boundary. */
 const DEMO_PUBLISHER = "sebmarkbage";
 
-/** A label-and-figure pair. Label first, because the reader needs to know what
- *  the number is before the number means anything. */
+/**
+ * A measurement tile.
+ *
+ * Figure above label, because at this size the number is the thing being
+ * scanned and the label only qualifies it. Reversing them makes a row of tiles
+ * read as a form.
+ */
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-baseline justify-between gap-3">
-      <dt className="text-[12.5px] text-ink-subtle">{label}</dt>
-      <dd className="shrink-0 text-[14px] font-medium tabular-nums text-ink">{value}</dd>
+    <div className="rounded-sm bg-card px-5 py-4 shadow-card">
+      <dd className="text-[22px] font-semibold leading-none tracking-tight tabular-nums text-ink">
+        {value}
+      </dd>
+      <dt className="mt-2 text-[12.5px] leading-snug text-ink-subtle">{label}</dt>
     </div>
   );
 }
@@ -76,10 +83,18 @@ export default async function OverviewPage() {
           </Card>
         ) : null}
 
-        {/* ── The answer ──────────────────────────────────────────────────── */}
+        {/* ── The answer ──────────────────────────────────────────────────────
+            Deliberately NOT in a card.
+
+            Putting the headline in a rounded rectangle like everything else is
+            what made this read as a template: five identical full-width boxes
+            stacked down the page, none of them louder than the others. The
+            answer belongs directly on the paper, with the cards below it
+            grouping the detail. That contrast — bare hero, boxed lists — is
+            most of what separates an editorial layout from a dashboard kit. */}
         {headline && verification ? (
-          <Card raised className="overflow-hidden">
-            <div className="grid gap-8 p-8 lg:grid-cols-[auto_1fr_auto] lg:items-center lg:gap-10">
+          <section className="overflow-hidden">
+            <div className="grid gap-8 py-6 lg:grid-cols-[auto_1fr_auto] lg:items-center lg:gap-12">
               <Tavik
                 pose={status === "violated" ? "alert" : "verified"}
                 size="xl"
@@ -128,34 +143,36 @@ export default async function OverviewPage() {
                 </div>
               </div>
 
-              {/* The right column carries real substance rather than a lone
-                  progress bar in a wide empty space. */}
-              <div className="w-full space-y-5 rounded-md bg-inset p-5 lg:w-64">
+              <div className="w-full rounded-md bg-card p-6 shadow-card lg:w-64">
                 <HealthBar counts={state.counts} />
-
-                <dl className="space-y-3 border-t border-line pt-4">
-                  <Stat
-                    label="Publishers who can reach you"
-                    value={verification.sourceCount.toLocaleString()}
-                  />
-                  <Stat
-                    label="Things being watched"
-                    value={(state.entityCount ?? 0).toLocaleString()}
-                  />
-                  <Stat
-                    label="Time to prove it"
-                    value={`${verification.elapsedMs.toFixed(0)}ms`}
-                  />
-                </dl>
-
-                <p className="border-t border-line pt-4 text-[12.5px] leading-relaxed text-ink-subtle">
+                <p className="mt-4 border-t border-line pt-4 text-[12.5px] leading-relaxed text-ink-subtle">
                   {openCount > 0
                     ? `${openCount} of your ${state.boundaries.length} rules ${openCount === 1 ? "has" : "have"} a way through right now.`
                     : "Every rule you've written is currently holding."}
                 </p>
               </div>
             </div>
-          </Card>
+
+            {/* A compact measurement strip. Small tiles under a large headline
+                give the eye somewhere to land between the display type and the
+                dense panels below, instead of dropping straight from 64px into
+                a graph. */}
+            <dl className="grid grid-cols-2 gap-3 pt-2 sm:grid-cols-4">
+              <Stat
+                label="Publishers who can reach you"
+                value={verification.sourceCount.toLocaleString()}
+              />
+              <Stat
+                label="Things being watched"
+                value={(state.entityCount ?? 0).toLocaleString()}
+              />
+              <Stat
+                label="Rules holding"
+                value={`${state.counts.verified} of ${state.boundaries.length}`}
+              />
+              <Stat label="Time to prove" value={`${verification.elapsedMs.toFixed(0)}ms`} />
+            </dl>
+          </section>
         ) : null}
 
         {/* ── Try it ──────────────────────────────────────────────────────── */}
