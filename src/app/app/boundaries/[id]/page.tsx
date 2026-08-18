@@ -1,29 +1,30 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { BoundaryGap } from "@/components/boundary/BoundaryGap";
 import { RemediationPanel } from "@/components/boundary/RemediationPanel";
-import { VerificationReceipt } from "@/components/boundary/VerificationReceipt";
 import { PathTrace } from "@/components/graph/PathTrace";
+import { SecurityGraph } from "@/components/graph/SecurityGraph";
 import { Tavik } from "@/components/mascot/Tavik";
-import { STATUS_PRESENTATION } from "@/components/ui/Status";
+import { Card, CardHeader, StatusRow } from "@/components/ui/Card";
+import { STATUS_PRESENTATION, StatusChip } from "@/components/ui/Status";
 import { EmptyState, Timestamp } from "@/components/ui/primitives";
 import type { StatusChangeDetail } from "@/lib/domain/change";
+import { buildSubgraph, chokepoints } from "@/lib/domain/subgraph";
 import { proposeRemediations } from "@/lib/engine/remediation";
 import { loadBoundary } from "@/lib/server/tavik";
 
 export const dynamic = "force-dynamic";
 
 /**
- * The investigation screen.
+ * One rule, in full.
  *
- * Ordered as an investigation actually proceeds: what is the claim, is it true,
- * why not, what changed, and what would fix it. Someone arriving from an alert
- * should be able to read straight down and reach a decision without navigating
- * anywhere else.
+ * Ordered the way an investigation actually runs: is it true, why not, what
+ * would fix it, what changed, and how it was checked. Someone arriving from an
+ * alert should be able to read straight down and reach a decision without
+ * navigating anywhere else.
  *
- * Every route is shown rather than a sample. This is the evidence page — a
- * summary here would mean asking someone to act on a partial picture.
+ * Every route is shown rather than a sample, because this is the evidence page.
+ * Summarising here would be asking someone to act on a partial picture.
  */
 export default async function BoundaryPage({ params }: PageProps<"/app/boundaries/[id]">) {
   const { id } = await params;
@@ -34,59 +35,72 @@ export default async function BoundaryPage({ params }: PageProps<"/app/boundarie
   const status = verification?.status ?? "unknown";
   const presentation = STATUS_PRESENTATION[status];
 
-  const lastChange = history.find(
-    (event) => event.type === "boundary.status_changed",
-  );
+  const lastChange = history.find((event) => event.type === "boundary.status_changed");
   const changeDetail =
     lastChange?.detail?.kind === "status_change"
       ? (lastChange.detail as StatusChangeDetail)
       : null;
 
+  const subgraph =
+    verification && verification.paths.length > 0
+      ? buildSubgraph(verification.paths)
+      : null;
+  const pinch = subgraph ? chokepoints(subgraph, 4) : [];
+
   return (
     <>
-      <header className="flex h-14 shrink-0 items-center gap-3 border-b border-line px-6">
+      <header className="flex h-16 shrink-0 items-center gap-3 px-6 lg:px-8">
         <Link
           href="/app"
-          className="font-mono text-2xs text-ink-subtle transition-colors hover:text-ink"
+          className="text-[13px] text-ink-subtle transition-colors hover:text-ink"
         >
-          ← overview
+          Overview
         </Link>
         <span className="text-ink-faint">/</span>
-        <h1 className="truncate text-sm font-medium text-ink">{boundary.name}</h1>
+        <span className="truncate text-[13px] font-medium text-ink">{boundary.name}</span>
       </header>
 
-      <main className="min-w-0 flex-1 pb-16">
-        {/* ── The claim, and whether it holds ────────────────────────────── */}
-        <section className="border-b border-line px-6 py-7">
-          <div className="flex items-start gap-5">
+      <main className="w-full space-y-5 px-6 pb-12 lg:px-8">
+        {/* ── The rule, and whether it holds ──────────────────────────────── */}
+        <Card raised>
+          <div className="grid gap-8 p-8 lg:grid-cols-[auto_1fr] lg:items-center lg:gap-10">
             <Tavik
               pose={status === "violated" ? "alert" : status === "verified" ? "verified" : "standby"}
-              size="md"
+              size="lg"
+              priority
               alt=""
-              className="hidden shrink-0 md:block"
+              className="mx-auto lg:mx-0"
             />
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <span
-                  className={`inline-flex items-center gap-2 font-mono text-2xs uppercase tracking-widest ${presentation.text}`}
-                >
-                  <span className={`size-1.5 rounded-full ${presentation.dot}`} aria-hidden />
-                  {presentation.headline}
-                </span>
-              </div>
-              <h2 className="mt-2 text-2xl font-medium tracking-tight text-ink">
-                {boundary.name}
-              </h2>
-              <p className="mt-2 max-w-3xl text-base leading-relaxed text-ink-muted">
+
+            <div className="min-w-0 text-center lg:text-left">
+              <StatusChip status={status} />
+              <h1 className="mt-5 text-display-sm text-ink">
+                {status === "violated" && verification ? (
+                  <>
+                    <span className="block tabular-nums">
+                      {verification.paths.length}
+                      {verification.truncated ? "+" : ""} ways
+                    </span>
+                    <span className="block text-ink-subtle">through this rule.</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="block">{boundary.name}</span>
+                    <span className="block text-ink-subtle">{presentation.label.toLowerCase()}.</span>
+                  </>
+                )}
+              </h1>
+              <p className="mx-auto mt-5 max-w-lg text-[15px] leading-relaxed text-ink-soft lg:mx-0">
                 {boundary.statement}
               </p>
+
               {verification?.failureReason ? (
-                <p className="mt-3 max-w-3xl rounded-md border border-unknown/25 bg-unknown-dim px-3 py-2 text-sm text-ink-muted">
+                <p className="mx-auto mt-4 max-w-lg rounded-sm bg-idle-soft px-4 py-3 text-[13.5px] leading-relaxed text-ink-soft lg:mx-0">
                   {verification.failureReason}
                 </p>
               ) : null}
               {connectionError ? (
-                <p className="mt-3 max-w-3xl rounded-md border border-unknown/25 bg-unknown-dim px-3 py-2 text-sm text-ink-muted">
+                <p className="mx-auto mt-4 max-w-lg rounded-sm bg-idle-soft px-4 py-3 text-[13.5px] text-ink-soft lg:mx-0">
                   {connectionError}
                 </p>
               ) : null}
@@ -94,76 +108,113 @@ export default async function BoundaryPage({ params }: PageProps<"/app/boundarie
           </div>
 
           {verification ? (
-            <div className="mt-8">
-              <BoundaryGap
-                boundary={boundary}
-                status={status}
-                pathCount={verification.paths.length}
-                sourceCount={verification.sourceCount}
-                targetCount={verification.targetCount}
+            <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-b-lg bg-line sm:grid-cols-4">
+              <Figure label="What it checks from" value={boundary.source.description} />
+              <Figure label="What it protects" value={boundary.target.description} />
+              <Figure label="How far it looks" value={`up to ${boundary.maxHops} steps`} />
+              <Figure label="Time to prove" value={`${verification.elapsedMs.toFixed(0)}ms`} />
+            </dl>
+          ) : null}
+        </Card>
+
+        {/* ── How to fix it ───────────────────────────────────────────────── */}
+        {status === "violated" && verification ? (
+          <Card>
+            <CardHeader
+              title="How to fix it"
+              subtitle="Each option removes one real relationship. Tavik applies it, then re-runs the exact check that found the problem and shows you what's left."
+            />
+            <div className="px-6 pb-6">
+              <RemediationPanel
+                boundaryId={boundary.id}
+                proposals={proposeRemediations(boundary, verification, 3)}
               />
             </div>
-          ) : null}
-        </section>
+          </Card>
+        ) : null}
 
-        {/* ── Why ─────────────────────────────────────────────────────────── */}
+        {/* ── The picture ─────────────────────────────────────────────────── */}
+        {subgraph ? (
+          <div className="grid items-stretch gap-5 xl:grid-cols-[1fr_360px]">
+            <Card className="flex min-w-0 flex-col">
+              <CardHeader
+                title="How they get in"
+                subtitle="Hover any dot to follow only its routes."
+              />
+              <div className="px-6 pb-6">
+                <SecurityGraph subgraph={subgraph} />
+              </div>
+            </Card>
+
+            <Card className="flex flex-col">
+              <CardHeader
+                title="Weakest links"
+                subtitle="Cut the top one to remove the most risk in a single change."
+              />
+              <ul className="space-y-1 px-3 pb-5">
+                {pinch.map((node) => (
+                  <li key={node.id}>
+                    <StatusRow
+                      status="violated"
+                      title={node.label}
+                      subtitle={`${node.kind.toLowerCase()} · on ${node.routeCount} routes`}
+                      trailing={`${node.routeCount}`}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          </div>
+        ) : null}
+
+        {/* ── The evidence ────────────────────────────────────────────────── */}
         {verification && verification.paths.length > 0 ? (
-          <section className="border-b border-line px-6 py-7">
-            <div className="flex items-baseline justify-between gap-4">
-              <h3 className="text-sm font-medium text-ink">
-                Why it is violated
-              </h3>
-              <span className="font-mono text-2xs text-ink-faint">
-                {verification.paths.length} route
-                {verification.paths.length === 1 ? "" : "s"} · shortest{" "}
-                {Math.min(...verification.paths.map((p) => p.length))} hops
-              </span>
-            </div>
-            <p className="mt-1.5 max-w-3xl text-sm text-ink-muted">
-              Each route below is a chain of real relationships. Every one is
-              checkable against the source it came from.
-            </p>
-
-            <div className="mt-6 grid gap-x-10 gap-y-9 sm:grid-cols-2 xl:grid-cols-3">
+          <Card>
+            <CardHeader
+              title="Every way in"
+              subtitle="Each is a real chain of relationships. You can check every link yourself."
+              action={
+                <span className="text-[13px] text-ink-subtle">
+                  {verification.paths.length}
+                  {verification.truncated ? "+" : ""} routes · shortest{" "}
+                  {Math.min(...verification.paths.map((p) => p.length))} steps
+                </span>
+              }
+            />
+            <div className="grid items-stretch gap-4 px-6 pb-6 md:grid-cols-2 2xl:grid-cols-3">
               {verification.paths
                 .slice()
                 .sort((a, b) => a.length - b.length)
                 .map((path, index) => (
-                  <PathTrace key={index} path={path} ordinal={index + 1} />
+                  <div key={index} className="h-full rounded-md bg-inset p-5">
+                    <PathTrace path={path} ordinal={index + 1} />
+                  </div>
                 ))}
             </div>
-          </section>
+          </Card>
         ) : null}
 
         {/* ── What changed ────────────────────────────────────────────────── */}
         {changeDetail ? (
-          <section className="border-b border-line px-6 py-7">
-            <h3 className="text-sm font-medium text-ink">What changed</h3>
-            <p className="mt-1.5 text-sm text-ink-muted">{lastChange?.summary}</p>
-            <p className="mt-2 font-mono text-2xs text-ink-faint">
-              {changeDetail.from} → {changeDetail.to} ·{" "}
-              {lastChange ? new Date(lastChange.at).toISOString() : ""}
-            </p>
-
-            {changeDetail.appearedPaths.length > 0 ? (
-              <div className="mt-5">
-                <p className="text-2xs font-semibold uppercase tracking-wider text-ink-faint">
-                  Routes that appeared
-                </p>
-                <ul className="mt-3 space-y-2">
-                  {changeDetail.appearedPaths.slice(0, 6).map((path) => (
+          <Card>
+            <CardHeader title="What changed" subtitle={lastChange?.summary} />
+            <div className="px-6 pb-6">
+              <p className="text-[13px] text-ink-subtle">
+                {changeDetail.from} → {changeDetail.to}
+                {lastChange ? ` · ${new Date(lastChange.at).toISOString().slice(0, 16).replace("T", " ")}` : ""}
+              </p>
+              {changeDetail.appearedPaths.length > 0 ? (
+                <ul className="mt-4 space-y-2">
+                  {changeDetail.appearedPaths.slice(0, 5).map((path) => (
                     <li
                       key={path.signature}
-                      className="overflow-x-auto rounded-md border border-line bg-inset px-3 py-2"
+                      className="overflow-x-auto rounded-sm bg-inset px-4 py-2.5"
                     >
-                      <span className="whitespace-nowrap font-mono text-2xs text-ink-muted">
+                      <span className="whitespace-nowrap font-mono text-[12.5px] text-ink-soft">
                         {path.hops[0]?.from.split(":").slice(2).join(":")}
                         {path.hops.map((hop, i) => (
                           <span key={i}>
-                            <span className="text-violated/70">
-                              {" "}
-                              ─{hop.relation.toLowerCase()}→{" "}
-                            </span>
+                            <span className="text-alert"> → </span>
                             {hop.to.split(":").slice(2).join(":")}
                           </span>
                         ))}
@@ -171,74 +222,45 @@ export default async function BoundaryPage({ params }: PageProps<"/app/boundarie
                     </li>
                   ))}
                 </ul>
-              </div>
-            ) : null}
-          </section>
-        ) : null}
-
-        {/* ── How to fix it ───────────────────────────────────────────────── */}
-        {status === "violated" && verification ? (
-          <section className="border-b border-line px-6 py-7">
-            <h3 className="text-sm font-medium text-ink">How to fix it</h3>
-            <p className="mt-1.5 max-w-3xl text-sm text-ink-muted">
-              Each option below removes one real relationship. Tavik will apply
-              it, then re-run the exact check that found the problem and show you
-              what is left.
-            </p>
-            <div className="mt-5 max-w-3xl">
-              <RemediationPanel
-                boundaryId={boundary.id}
-                proposals={proposeRemediations(boundary, verification, 3)}
-              />
+              ) : null}
             </div>
-          </section>
+          </Card>
         ) : null}
 
-        {/* ── When ────────────────────────────────────────────────────────── */}
-        <section className="border-b border-line px-6 py-7">
-          <h3 className="text-sm font-medium text-ink">History</h3>
+        {/* ── History ─────────────────────────────────────────────────────── */}
+        <Card>
+          <CardHeader
+            title="History"
+            subtitle="Every check Tavik has run against this rule."
+          />
           {history.length === 0 ? (
             <EmptyState
               illustration={<Tavik pose="working" size="md" alt="" />}
-              title="No history recorded yet"
-              description="Tavik writes an entry each time this boundary is verified. Run `npm run verify` to record one."
+              title="No history yet"
+              description="Tavik writes an entry each time it checks this rule."
             />
           ) : (
-            <ul className="mt-4 border-t border-line">
+            <ul className="space-y-1 px-3 pb-5">
               {history.map((entry) => (
-                <li
-                  key={entry.id}
-                  className="flex flex-wrap items-baseline gap-x-5 gap-y-1 border-b border-line/60 py-2.5"
-                >
-                  <Timestamp at={entry.at} className="shrink-0" />
-                  <span
-                    className={`shrink-0 font-mono text-2xs uppercase tracking-wider ${
-                      entry.type === "boundary.status_changed"
-                        ? "text-accent"
-                        : "text-ink-faint"
-                    }`}
-                  >
-                    {entry.type.split(".")[1]?.replace(/_/g, " ")}
-                  </span>
-                  <span className="min-w-0 flex-1 text-sm text-ink-muted">
-                    {entry.summary}
-                  </span>
+                <li key={entry.id} className="rounded-md px-4 py-2.5">
+                  <p className="text-[14px] leading-relaxed text-ink-soft">{entry.summary}</p>
+                  <Timestamp at={entry.at} className="mt-1 block" />
                 </li>
               ))}
             </ul>
           )}
-        </section>
-
-        {/* ── Method ──────────────────────────────────────────────────────── */}
-        {verification ? (
-          <section className="bg-inset px-6 py-6">
-            <h3 className="mb-4 text-2xs font-semibold uppercase tracking-wider text-ink-faint">
-              How this was checked
-            </h3>
-            <VerificationReceipt boundary={boundary} verification={verification} />
-          </section>
-        ) : null}
+        </Card>
       </main>
     </>
+  );
+}
+
+/** One fact in the strip beneath the headline. */
+function Figure({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="bg-card px-6 py-5">
+      <dt className="text-[12.5px] text-ink-subtle">{label}</dt>
+      <dd className="mt-1 text-[14px] font-medium leading-snug text-ink">{value}</dd>
+    </div>
   );
 }

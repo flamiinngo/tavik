@@ -1,91 +1,81 @@
 import Link from "next/link";
 
 import { Tavik } from "@/components/mascot/Tavik";
-import { STATUS_PRESENTATION } from "@/components/ui/Status";
+import { Card, HealthBar, StatusRow } from "@/components/ui/Card";
 import { Button, EmptyState } from "@/components/ui/primitives";
-import type { BoundaryStatus } from "@/lib/domain/boundary";
 import { loadSecurityState } from "@/lib/server/tavik";
 
-export const metadata = { title: "Boundaries" };
+export const metadata = { title: "Rules" };
 export const dynamic = "force-dynamic";
-
-const RAIL: Record<BoundaryStatus, string> = {
-  verified: "bg-verified",
-  violated: "bg-violated",
-  investigating: "bg-investigating",
-  unknown: "bg-unknown",
-};
 
 export default async function BoundariesPage() {
   const state = await loadSecurityState();
+  const open = state.counts.violated;
 
   return (
     <>
-      <header className="flex h-14 shrink-0 items-center justify-between border-b border-line px-6">
-        <h1 className="text-sm font-medium text-ink">Boundaries</h1>
-        <span className="font-mono text-2xs text-ink-faint">
-          {state.boundaries.length} declared
-        </span>
+      <header className="flex h-16 shrink-0 items-center px-6 lg:px-8">
+        <h1 className="text-[15px] font-semibold tracking-tight text-ink">Your rules</h1>
       </header>
 
-      <main className="min-w-0 flex-1">
-        <div className="border-b border-line px-6 py-5">
-          <p className="max-w-2xl text-sm text-ink-muted">
-            A boundary is a claim about what must never become true. Tavik
-            re-checks each one against current state and proves the answer with a
-            concrete path.
-          </p>
-        </div>
+      <main className="w-full space-y-5 px-6 pb-12 lg:px-8">
+        <Card raised>
+          <div className="grid gap-8 p-8 lg:grid-cols-[1fr_auto] lg:items-end">
+            <div className="min-w-0">
+              <h2 className="text-display-sm text-ink">
+                <span className="block tabular-nums">
+                  {state.counts.verified} of {state.boundaries.length}
+                </span>
+                <span className="block text-ink-subtle">rules are holding.</span>
+              </h2>
+              <p className="mt-5 max-w-md text-[15px] leading-relaxed text-ink-soft">
+                A rule is something you&apos;ve said must never happen. Tavik re-checks
+                each one against what&apos;s actually installed, and proves the answer
+                with a chain you can follow.
+              </p>
+            </div>
 
-        {state.boundaries.length === 0 ? (
-          <EmptyState
-            illustration={<Tavik pose="standby" size="lg" alt="" />}
-            title="Nothing to verify yet"
-            description="Declare what must never happen and Tavik will start proving it, continuously."
-            action={<Button variant="primary">Declare a boundary</Button>}
-          />
-        ) : (
-          <ul>
-            {state.boundaries.map(({ boundary, verification }) => {
-              const status = verification?.status ?? "unknown";
-              return (
-                <li key={boundary.id} className="border-b border-line">
-                  <Link
+            <div className="w-full rounded-md bg-inset p-5 lg:w-64">
+              <HealthBar counts={state.counts} />
+              <p className="mt-4 text-[13px] leading-relaxed text-ink-subtle">
+                {open > 0
+                  ? `${open} ${open === 1 ? "rule has" : "rules have"} a way through right now.`
+                  : "Nothing can currently get through."}
+              </p>
+            </div>
+          </div>
+        </Card>
+
+        <Card>
+          {state.boundaries.length === 0 ? (
+            <EmptyState
+              illustration={<Tavik pose="standby" size="lg" alt="" />}
+              title="No rules yet"
+              description="Tell Tavik what must never happen, and it will start proving it — continuously."
+              action={<Button variant="primary">Write your first rule</Button>}
+            />
+          ) : (
+            <ul className="space-y-1 p-3">
+              {state.boundaries.map(({ boundary, verification }) => (
+                <li key={boundary.id}>
+                  <StatusRow
+                    status={verification?.status ?? "unknown"}
+                    title={boundary.name}
+                    subtitle={verification?.failureReason ?? boundary.statement}
+                    trailing={
+                      verification
+                        ? verification.paths.length === 0
+                          ? "no way in"
+                          : `${verification.paths.length}${verification.truncated ? "+" : ""} ways in`
+                        : "—"
+                    }
                     href={`/app/boundaries/${boundary.id}`}
-                    className="flex items-stretch transition-colors hover:bg-raised/40"
-                  >
-                    <span className={`w-0.5 shrink-0 ${RAIL[status]}`} aria-hidden />
-                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-6 gap-y-2 px-5 py-4">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-baseline gap-3">
-                          <span className="text-sm text-ink">{boundary.name}</span>
-                          <span
-                            className={`font-mono text-2xs uppercase tracking-wider ${STATUS_PRESENTATION[status].text}`}
-                          >
-                            {status}
-                          </span>
-                        </div>
-                        <p className="mt-1 max-w-2xl text-xs leading-relaxed text-ink-subtle">
-                          {verification?.failureReason ?? boundary.statement}
-                        </p>
-                      </div>
-                      <div className="shrink-0 text-right font-mono text-2xs tabular-nums text-ink-faint">
-                        <p>
-                          {verification
-                            ? `${verification.paths.length} route${verification.paths.length === 1 ? "" : "s"}`
-                            : "—"}
-                        </p>
-                        <p className="mt-0.5">
-                          {verification ? `${verification.elapsedMs.toFixed(0)}ms` : ""}
-                        </p>
-                      </div>
-                    </div>
-                  </Link>
+                  />
                 </li>
-              );
-            })}
-          </ul>
-        )}
+              ))}
+            </ul>
+          )}
+        </Card>
       </main>
     </>
   );
