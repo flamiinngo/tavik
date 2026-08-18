@@ -19,56 +19,60 @@
 
 @theme {
   /* ── Canvas and surfaces ──────────────────────────────────────────────────
-     A cool off-white ground with pure white cards. The card reads as raised
-     because it is *lighter* than the page, which is how paper behaves and is
-     more convincing than a heavy shadow. */
-  --color-canvas: #f4f5f7;
+     Warm cream, not cool grey. A cool ground reads clinical — like a hospital
+     form — while warm paper reads considered and calm, which is what a product
+     asking to be trusted needs. It also sits far better under the mascot's navy
+     and cyan than a blue-grey does.
+
+     Cards are pure white: lighter than the page rather than outlined, which is
+     how paper behaves and is more convincing than a heavy shadow. */
+  --color-canvas: #f6f3ee;
   --color-card: #ffffff;
-  --color-sunken: #eceef1;
-  --color-inset: #f8f9fa;
+  --color-sunken: #ece7df;
+  --color-inset: #faf8f5;
 
   /* ── Ink ──────────────────────────────────────────────────────────────────
-     Deep navy-black rather than pure black. Pure black on off-white is harsh at
-     display sizes and reads as unfinished. */
-  --color-ink: #0d1420;
-  --color-ink-muted: #59617180;
-  --color-ink-soft: #596171;
-  --color-ink-subtle: #858d9b;
-  --color-ink-faint: #a8afba;
+     Warm near-black. Pure black on cream is harsh and reads as unfinished; a
+     touch of warmth in the text keeps it on the same paper as the background. */
+  --color-ink: #14120f;
+  --color-ink-muted: #6b645b;
+  --color-ink-soft: #6b645b;
+  --color-ink-subtle: #8f877c;
+  --color-ink-faint: #b3aca2;
 
   /* ── Lines ────────────────────────────────────────────────────────────────
-     Barely-there. On a light UI the shadow does the separating; a visible
-     border on every card is what makes a light interface look like a form. */
+     Barely there. On a light UI the shadow does the separating; a visible border
+     around everything is what makes an interface look like a form. */
   --color-line: oklch(0 0 0 / 7%);
   --color-line-strong: oklch(0 0 0 / 12%);
 
   /* ── Accent ───────────────────────────────────────────────────────────────
-     Deep teal, taken from the mascot's cyan and darkened until it holds its own
-     against white. One accent, used for the primary action and for the thing
+     Deep teal, taken straight from the mascot's cyan and darkened until it holds
+     against cream. One accent, used for the primary action and for the thing
      being protected — nowhere else. */
-  --color-accent: #0b7285;
-  --color-accent-strong: #095e6d;
-  --color-accent-soft: #e3f2f5;
+  --color-accent: #0a6f7f;
+  --color-accent-strong: #085a68;
+  --color-accent-soft: #e4f1f2;
   --color-accent-line: oklch(0.5 0.08 210 / 22%);
 
   /* ── Status ───────────────────────────────────────────────────────────────
-     Muted and desaturated on purpose. A refined rose rather than fire-engine
-     red; a deep pine rather than a bright green. At these values a status chip
-     sits inside the design instead of shouting over it. */
-  --color-alert: #b42342;
-  --color-alert-soft: #fdeef1;
-  --color-alert-line: oklch(0.5 0.15 15 / 20%);
+     Warm-shifted to sit on cream, and desaturated so a chip belongs inside the
+     design rather than shouting over it. A burnt orange-red instead of
+     fire-engine red; a deep olive-pine instead of a bright green. */
+  --color-alert: #c2410c;
+  --color-alert-soft: #fdece3;
+  --color-alert-line: oklch(0.58 0.16 40 / 24%);
 
-  --color-safe: #0f6b4f;
-  --color-safe-soft: #e8f4ef;
-  --color-safe-line: oklch(0.45 0.09 160 / 20%);
+  --color-safe: #3f6212;
+  --color-safe-soft: #eff3e3;
+  --color-safe-line: oklch(0.5 0.11 120 / 22%);
 
-  --color-watch: #9a6206;
-  --color-watch-soft: #fdf3e2;
-  --color-watch-line: oklch(0.6 0.11 70 / 22%);
+  --color-watch: #a16207;
+  --color-watch-soft: #fbf1de;
+  --color-watch-line: oklch(0.62 0.12 75 / 24%);
 
-  --color-idle: #6b7280;
-  --color-idle-soft: #f0f1f3;
+  --color-idle: #78716c;
+  --color-idle-soft: #f2efea;
   --color-idle-line: oklch(0 0 0 / 10%);
 
   /* ── Typography ───────────────────────────────────────────────────────────
@@ -80,6 +84,22 @@
   --text-2xs: 0.6875rem;
   --text-2xs--line-height: 1rem;
   --text-2xs--letter-spacing: 0.02em;
+
+  /* ── Display ──────────────────────────────────────────────────────────────
+     Large, heavy, tight. Editorial rather than administrative.
+     A dashboard whose biggest element is 20px reads as a settings screen; the
+     headline should be able to carry the answer across a room, and tight
+     leading with negative tracking is what makes size read as confidence rather
+     than as shouting. Intended to be stacked over two or three short lines. */
+  --text-display: 4rem;
+  --text-display--line-height: 0.92;
+  --text-display--letter-spacing: -0.035em;
+  --text-display--font-weight: 600;
+
+  --text-display-sm: 2.75rem;
+  --text-display-sm--line-height: 0.95;
+  --text-display-sm--letter-spacing: -0.03em;
+  --text-display-sm--font-weight: 600;
 
   /* ── Radii ────────────────────────────────────────────────────────────────
      Generous, and pill-shaped for anything interactive. */

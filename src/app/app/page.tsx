@@ -90,28 +90,40 @@ export default async function OverviewPage() {
 
               <div className="min-w-0 text-center lg:text-left">
                 <StatusChip status={status} />
-                <h2 className="mt-4 text-[40px] font-semibold leading-[1.05] tracking-tight text-ink sm:text-[52px]">
+
+                {/* Stacked over two lines at display size. The answer should
+                    carry across a room; a headline the size of a form label is
+                    what made this read as a settings screen. */}
+                <h2 className="mt-5 text-display-sm text-ink sm:text-display">
                   {status === "violated" ? (
                     <>
-                      {verification.paths.length}
-                      {verification.truncated ? "+" : ""} ways in
+                      <span className="block tabular-nums">
+                        {verification.paths.length}
+                        {verification.truncated ? "+" : ""} ways
+                      </span>
+                      <span className="block text-ink-subtle">into production.</span>
                     </>
                   ) : (
-                    presentation.headline
+                    <>
+                      <span className="block">Nothing</span>
+                      <span className="block text-ink-subtle">can get in.</span>
+                    </>
                   )}
                 </h2>
-                <p className="mx-auto mt-4 max-w-xl text-[16px] leading-relaxed text-ink-soft lg:mx-0">
+
+                <p className="mx-auto mt-6 max-w-md text-[15px] leading-relaxed text-ink-soft lg:mx-0">
                   {headline.boundary.statement}
                 </p>
 
-                <div className="mt-7 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
+                <div className="mt-8 flex flex-wrap items-center justify-center gap-4 lg:justify-start">
                   <Link href={`/app/boundaries/${headline.boundary.id}`}>
                     <Button variant="primary" size="lg">
-                      {status === "violated" ? "Show me how, and fix it" : "See the proof"}
+                      {status === "violated" ? "Show me how" : "See the proof"}
+                      <span aria-hidden>↗</span>
                     </Button>
                   </Link>
                   <span className="text-[13px] text-ink-faint">
-                    checked in {verification.elapsedMs.toFixed(0)}ms
+                    proven in {verification.elapsedMs.toFixed(0)}ms
                   </span>
                 </div>
               </div>
