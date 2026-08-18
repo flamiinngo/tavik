@@ -147,6 +147,11 @@ export async function ingestMaintainers(
           attributes: {
             maintainerCount: packument.maintainers.length,
             latest: packument.distTags.latest ?? "",
+            // Bus factor. A package only one account can publish to has no
+            // second pair of eyes and no recovery path if that account is lost
+            // or taken over — a real, standard supply-chain concern, and one
+            // that is a fact about the registry rather than a judgement.
+            sole_publisher: packument.maintainers.length === 1,
           },
         });
 
@@ -180,8 +185,30 @@ export async function ingestMaintainers(
         // versions actually present in the registry are linked, so a yanked or
         // renamed version does not create a dangling edge.
         for (const version of packageVersions.get(packageName) ?? []) {
-          if (!packument.versions[version]) continue;
+          const registryVersion = packument.versions[version];
+          if (!registryVersion) continue;
           const releaseUrn = entityUrn("Release", packageName, version);
+
+          // Enrich the release the lockfile already created with facts only the
+          // registry knows. Deprecation is the maintainer's own signal that a
+          // version should no longer be used, so a deprecated release running in
+          // production is a finding stated in the publisher's own words.
+          entities.set(releaseUrn, {
+            urn: releaseUrn,
+            kind: "Release",
+            name: `${packageName}@${version}`,
+            displayName: packageName,
+            source: "npm-registry",
+            attributes: {
+              package: packageName,
+              version,
+              deprecated: Boolean(registryVersion.deprecated),
+              ...(registryVersion.deprecated
+                ? { deprecationNotice: registryVersion.deprecated.slice(0, 160) }
+                : {}),
+            },
+          });
+
           relations.push({
             from: packageUrn,
             to: releaseUrn,

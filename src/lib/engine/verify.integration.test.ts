@@ -180,18 +180,18 @@ describe.runIf(env)("the GREEN -> RED -> GREEN loop, against live HydraDB", () =
     await store.deleteEntities(allUrns);
   }, 60_000);
 
-  it("reports unknown rather than verified when nothing matches the selectors", async () => {
+  it("holds when the estate is populated but nothing matches the selectors", async () => {
     if (!reachable || !store || !client) return;
 
-    // Nothing ingested for these selectors: Tavik has nothing to check from,
-    // which is not the same as having checked and found nothing. Asserted
-    // against a selector space no data occupies, rather than by emptying the
-    // graph, so real ingested state is left intact.
+    // With the fixtures removed, no entity carries this test's trust label. The
+    // graph is populated, so there is genuinely nothing that could cross and the
+    // boundary holds. This is the distinction that lets a real boundary ever
+    // report green: "checked, and nothing qualifies" is a result, not a failure.
     await store.deleteEntities(allUrns);
     const result = await verifyBoundary(store, client, boundary);
 
-    expect(result.status).toBe("unknown");
-    expect(result.status).not.toBe("verified");
-    expect(result.failureReason).toMatch(/selector/i);
+    expect(result.status).toBe("verified");
+    expect(result.paths).toHaveLength(0);
+    expect(result.failureReason).toBeUndefined();
   }, 30_000);
 });

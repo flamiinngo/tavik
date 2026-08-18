@@ -98,7 +98,11 @@ export async function fetchPackument(
   const url = `${registry.replace(/\/+$/, "")}/${encodedName}`;
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), options.timeoutMs ?? 20_000);
+  // Full packuments for long-lived packages are large — typescript and
+  // tailwindcss both exceeded a 20s budget on a normal connection. A dropped
+  // package means missing edges, and missing edges mean paths Tavik will never
+  // find, so the timeout is generous rather than tight.
+  const timer = setTimeout(() => controller.abort(), options.timeoutMs ?? 60_000);
   const onAbort = () => controller.abort();
   options.signal?.addEventListener("abort", onAbort, { once: true });
 

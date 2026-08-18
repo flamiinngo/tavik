@@ -68,6 +68,7 @@ export async function verifyBoundary(
       status: "unknown" as const,
       verifiedAt: now(),
       paths: [],
+      truncated: false,
       sourceCount,
       targetCount,
       elapsedMs: now() - startedAt,
@@ -95,29 +96,51 @@ export async function verifyBoundary(
     return unknown(describeFailure(error, "resolving the boundary's endpoints"));
   }
 
-  // An empty endpoint set is NOT a verified boundary. It usually means ingestion
-  // has not run, or a selector stopped matching after a schema change. Reporting
-  // GREEN here would be the most dangerous false negative Tavik could produce,
-  // because on screen it is indistinguishable from safety.
-  if (sourceUrns.length === 0) {
-    return unknown(
-      `No entities matched the source selector (${boundary.source.description}). ` +
-        `Tavik cannot confirm this boundary holds because it has nothing to check from. ` +
-        `This usually means ingestion has not run for this environment.`,
-      0,
-      targetUrns.length,
-    );
-  }
-  if (targetUrns.length === 0) {
-    return unknown(
-      `No entities matched the target selector (${boundary.target.description}). ` +
-        `Tavik cannot confirm this boundary holds because it has nothing to check against.`,
-      sourceUrns.length,
-      0,
-    );
+  // An empty endpoint set has two very different meanings, and collapsing them
+  // would either hide a real gap or invent a false alarm.
+  //
+  //   Nothing of that kind exists at all  → ingestion has not run. `unknown`.
+  //   The kind exists but none match      → nothing in the estate carries this
+  //                                         risk, so there is genuinely nothing
+  //                                         that could cross. The boundary holds.
+  //
+  // The second case is a real result: "no release in production is deprecated"
+  // is a boundary holding, not a failure to check. Reporting it as `unknown`
+  // would train people to ignore the state that actually matters.
+  if (sourceUrns.length === 0 || targetUrns.length === 0) {
+    const emptySide = sourceUrns.length === 0 ? boundary.source : boundary.target;
+    let population = 0;
+    try {
+      population = await store.countEntitiesOfKind(emptySide.kind, queryOptions);
+    } catch (error) {
+      return unknown(describeFailure(error, "checking whether any entities exist"));
+    }
+
+    if (population === 0) {
+      return unknown(
+        `Tavik has no ${emptySide.kind.toLowerCase()} entities at all, so it cannot check ` +
+          `this boundary. This usually means ingestion has not run for this environment.`,
+        sourceUrns.length,
+        targetUrns.length,
+      );
+    }
+
+    return {
+      boundaryId: boundary.id,
+      status: "verified",
+      verifiedAt: now(),
+      paths: [],
+      truncated: false,
+      sourceCount: sourceUrns.length,
+      targetCount: targetUrns.length,
+      elapsedMs: now() - startedAt,
+    };
   }
 
-  const cypher = store.buildPathQuery(boundary, sourceUrns, targetUrns, pathLimit);
+  // Ask for one more path than will be shown. If that extra path comes back,
+  // the result is a sample rather than the whole picture, and the UI has to say
+  // so — see BoundaryVerification.truncated.
+  const cypher = store.buildPathQuery(boundary, sourceUrns, targetUrns, pathLimit + 1);
 
   let rows: readonly Record<string, unknown>[];
   let elapsedMs: number;
@@ -151,11 +174,16 @@ export async function verifyBoundary(
     paths.push(path);
   }
 
+  const truncated = paths.length > pathLimit;
+
   return {
     boundaryId: boundary.id,
     status: paths.length > 0 ? "violated" : "verified",
     verifiedAt: now(),
-    paths,
+    // Drop the probe path used to detect truncation, so callers never see one
+    // more than they asked for.
+    paths: truncated ? paths.slice(0, pathLimit) : paths,
+    truncated,
     sourceCount: sourceUrns.length,
     targetCount: targetUrns.length,
     elapsedMs,

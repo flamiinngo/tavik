@@ -19,7 +19,8 @@
     "hydra:probe": "node scripts/hydra-probe.mjs",
     "ingest": "tsx scripts/ingest.mts",
     "mascot:slice": "node scripts/slice-mascot.mjs",
-    "verify": "tsx scripts/verify.mts"
+    "verify": "tsx scripts/verify.mts",
+    "demo": "tsx scripts/demo.mts"
   },
   "dependencies": {
     "d3-force": "^3.0.0",

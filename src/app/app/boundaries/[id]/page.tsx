@@ -2,12 +2,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { BoundaryGap } from "@/components/boundary/BoundaryGap";
+import { RemediationPanel } from "@/components/boundary/RemediationPanel";
 import { VerificationReceipt } from "@/components/boundary/VerificationReceipt";
 import { PathTrace } from "@/components/graph/PathTrace";
 import { Tavik } from "@/components/mascot/Tavik";
 import { STATUS_PRESENTATION } from "@/components/ui/Status";
-import { Button, EmptyState, Timestamp } from "@/components/ui/primitives";
+import { EmptyState, Timestamp } from "@/components/ui/primitives";
 import type { StatusChangeDetail } from "@/lib/domain/change";
+import { proposeRemediations } from "@/lib/engine/remediation";
 import { loadBoundary } from "@/lib/server/tavik";
 
 export const dynamic = "force-dynamic";
@@ -174,23 +176,20 @@ export default async function BoundaryPage({ params }: PageProps<"/app/boundarie
           </section>
         ) : null}
 
-        {/* ── Recommendation ──────────────────────────────────────────────── */}
-        {status === "violated" ? (
+        {/* ── How to fix it ───────────────────────────────────────────────── */}
+        {status === "violated" && verification ? (
           <section className="border-b border-line px-6 py-7">
-            <h3 className="text-sm font-medium text-ink">Recommendation</h3>
+            <h3 className="text-sm font-medium text-ink">How to fix it</h3>
             <p className="mt-1.5 max-w-3xl text-sm text-ink-muted">
-              This boundary is violated by publish rights, not by a known-bad
-              artifact. Restoring it means either adding these publishers to the
-              allowlist as an accepted risk, or removing the dependency path that
-              reaches production.
+              Each option below removes one real relationship. Tavik will apply
+              it, then re-run the exact check that found the problem and show you
+              what is left.
             </p>
-            <div className="mt-5 flex flex-wrap items-center gap-3">
-              <Button variant="secondary" size="sm" disabled>
-                Prepare remediation
-              </Button>
-              <span className="font-mono text-2xs text-ink-faint">
-                remediation workflow not built yet
-              </span>
+            <div className="mt-5 max-w-3xl">
+              <RemediationPanel
+                boundaryId={boundary.id}
+                proposals={proposeRemediations(boundary, verification, 3)}
+              />
             </div>
           </section>
         ) : null}

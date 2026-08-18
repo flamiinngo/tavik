@@ -43,8 +43,25 @@ export type BoundaryStatus =
  */
 export interface EntitySelector {
   readonly kind: EntityKind;
-  /** Property to match on. Validated as a Cypher identifier before use. */
-  readonly property: "urn" | "name" | "tag" | "environment" | "trust";
+  /**
+   * Property to match on. A closed set, deliberately.
+   *
+   * Every entry here has to be written as a first-class property during
+   * ingestion (see `selectorAttributes` in graph-store.ts), because HydraDB's
+   * `UNWIND ... SET` needs statically-named properties. Adding one means adding
+   * it in both places — a selector pointing at a property nothing writes will
+   * silently match nothing, and the boundary using it will report `unknown`.
+   */
+  readonly property:
+    | "urn"
+    | "name"
+    | "tag"
+    | "environment"
+    | "trust"
+    /** "true" when the registry marks this release deprecated. */
+    | "deprecated"
+    /** "true" when exactly one account can publish the package. */
+    | "sole_publisher";
   readonly value: string;
   /** Human description, shown in the UI in place of the raw predicate. */
   readonly description: string;
@@ -91,6 +108,17 @@ export interface BoundaryVerification {
    * verified.
    */
   readonly paths: readonly ReachabilityPath[];
+  /**
+   * True when the traversal hit its path limit, so more routes exist than were
+   * returned.
+   *
+   * This must be surfaced wherever a count is shown. Presenting a capped sample
+   * as a total is a quiet lie with real consequences: it makes a fix that closes
+   * "19 of 25 routes" look like it removes three quarters of the exposure, when
+   * the true denominator may be far larger and the remaining routes simply take
+   * their place.
+   */
+  readonly truncated: boolean;
   /** How many source entities the selector resolved to. */
   readonly sourceCount: number;
   readonly targetCount: number;

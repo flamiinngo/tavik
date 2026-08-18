@@ -112,7 +112,8 @@ export class GraphStore {
          MERGE (n {id: row.id})
          SET n:${label.text}, n.urn = row.urn, n.kind = row.kind,
              n.name = row.name, n.source = row.source,
-             n.tag = row.tag, n.environment = row.environment, n.trust = row.trust`,
+             n.tag = row.tag, n.environment = row.environment, n.trust = row.trust,
+             n.deprecated = row.deprecated, n.sole_publisher = row.sole_publisher`,
         { ...options, parameters: { rows: rows as unknown as HydraParam } },
       );
       written += batch.length;
@@ -182,6 +183,51 @@ export class GraphStore {
         parameters: { from: urnToNodeId(from), to: urnToNodeId(to) },
       },
     );
+  }
+
+  /**
+   * Change an entity's trust label.
+   *
+   * Trust is this workspace's own policy, not a fact about the world and never a
+   * judgement about a person — see the note in ingest/maintainers.ts. Moving an
+   * account onto or off a list is a real decision a security team makes, and it
+   * is a real mutation of the graph, so a boundary re-checked afterwards is
+   * answering a genuinely different question.
+   */
+  async setTrust(
+    urn: EntityUrn,
+    trust: "trusted" | "untrusted" | "quarantined",
+    options: QueryOptions = {},
+  ): Promise<void> {
+    const label = identifier(ENTITY_LABEL);
+    // No `RETURN` after the `SET`: HydraDB refuses a mutation that continues
+    // with MATCH, RETURN or WITH. Callers that need to confirm the write read
+    // it back separately with getEntity.
+    await this.client.query(
+      `MATCH (n:${label.text} {id: $id}) SET n.trust = $trust`,
+      { ...options, parameters: { id: urnToNodeId(urn), trust } },
+    );
+  }
+
+  /** Look up an entity by URN, for confirming a mutation targeted something real. */
+  async getEntity(
+    urn: EntityUrn,
+    options: QueryOptions = {},
+  ): Promise<EntityRow | null> {
+    const label = identifier(ENTITY_LABEL);
+    const result = await this.client.query<EntityRow>(
+      `MATCH (e:${label.text} {id: $id})
+       RETURN e.urn AS urn, e.kind AS kind, e.name AS name, e.source AS source`,
+      { ...options, parameters: { id: urnToNodeId(urn) } },
+    );
+    const row = result.rows[0];
+    if (!row) return null;
+    return {
+      urn: String(row.urn),
+      kind: String(row.kind),
+      name: String(row.name),
+      source: String(row.source),
+    };
   }
 
   /**
@@ -363,6 +409,26 @@ export class GraphStore {
     }) YIELD path RETURN path`;
   }
 
+  /**
+   * How many entities of a kind exist, regardless of any selector.
+   *
+   * Used to tell two very different situations apart: a selector matching
+   * nothing because ingestion never ran, versus matching nothing because
+   * genuinely nothing in the estate carries that risk. The first is `unknown`;
+   * the second is a boundary that holds.
+   */
+  async countEntitiesOfKind(
+    kind: string,
+    options: QueryOptions = {},
+  ): Promise<number> {
+    const label = identifier(ENTITY_LABEL);
+    const result = await this.client.query<{ total: number }>(
+      `MATCH (n:${label.text}) WHERE n.kind = $kind RETURN count(*) AS total`,
+      { ...options, parameters: { kind } },
+    );
+    return Number(result.rows[0]?.total ?? 0);
+  }
+
   /** Total entity count, for the dashboard state summary. */
   async countEntities(options: QueryOptions = {}): Promise<number> {
     const label = identifier(ENTITY_LABEL);
@@ -382,20 +448,23 @@ export class GraphStore {
  * the two must stay in step, or a selector will silently match nothing and the
  * boundary it belongs to will report `unknown`.
  */
-function selectorAttributes(entity: Entity): {
-  tag: string;
-  environment: string;
-  trust: string;
-} {
+function selectorAttributes(entity: Entity): Record<string, string> {
   const attributes = entity.attributes ?? {};
   const read = (key: string): string => {
     const value = attributes[key];
-    return typeof value === "string" ? value : "";
+    if (typeof value === "string") return value;
+    // Booleans are stored as strings because selectors compare for equality
+    // against a literal, and "true"/"false" reads correctly in a UI that shows
+    // the raw predicate alongside the description.
+    if (typeof value === "boolean") return value ? "true" : "false";
+    return "";
   };
   return {
     tag: read("tag"),
     environment: read("environment"),
     trust: read("trust"),
+    deprecated: read("deprecated"),
+    sole_publisher: read("sole_publisher"),
   };
 }
 

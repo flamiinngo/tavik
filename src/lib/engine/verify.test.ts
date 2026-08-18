@@ -67,6 +67,12 @@ interface FakeConfig {
   rows?: HydraRow[];
   resolveError?: Error;
   queryError?: Error;
+  /**
+   * How many entities of the empty side's kind exist overall. Decides whether an
+   * empty selector match means "ingestion never ran" or "nothing carries this
+   * risk". Defaults to a populated graph.
+   */
+  population?: number;
 }
 
 function fakes(config: FakeConfig) {
@@ -77,6 +83,7 @@ function fakes(config: FakeConfig) {
         ? (config.sources ?? [MAINTAINER])
         : (config.targets ?? [SERVICE]);
     },
+    countEntitiesOfKind: async () => config.population ?? 500,
     buildPathQuery: () => "CALL algo.MSpaths({}) YIELD path RETURN path",
   } as unknown as GraphStore;
 
@@ -155,21 +162,32 @@ describe("verifyBoundary", () => {
 
   // ── The failure modes that must never read as safe ────────────────────────
 
-  it("reports unknown, not verified, when the source selector matches nothing", async () => {
-    const { store, client } = fakes({ sources: [] });
+  it("reports unknown when nothing of that kind exists at all", async () => {
+    // No maintainers in the graph means ingestion never ran. Tavik has not
+    // checked anything, so it must not claim the boundary holds.
+    const { store, client } = fakes({ sources: [], population: 0 });
     const result = await verifyBoundary(store, client, boundary);
 
     expect(result.status).toBe("unknown");
-    expect(result.failureReason).toMatch(/source selector/i);
     expect(result.failureReason).toMatch(/ingestion/i);
   });
 
-  it("reports unknown, not verified, when the target selector matches nothing", async () => {
-    const { store, client } = fakes({ targets: [] });
+  it("reports verified when the kind is populated but nothing matches", async () => {
+    // 500 maintainers exist and none are quarantined: there is genuinely
+    // nothing that could cross, so the boundary holds. Calling this `unknown`
+    // would train people to ignore the state that actually matters.
+    const { store, client } = fakes({ sources: [], population: 500 });
     const result = await verifyBoundary(store, client, boundary);
 
+    expect(result.status).toBe("verified");
+    expect(result.failureReason).toBeUndefined();
+    expect(result.paths).toHaveLength(0);
+  });
+
+  it("applies the same reasoning to an empty target side", async () => {
+    const { store, client } = fakes({ targets: [], population: 0 });
+    const result = await verifyBoundary(store, client, boundary);
     expect(result.status).toBe("unknown");
-    expect(result.failureReason).toMatch(/target selector/i);
   });
 
   it("reports unknown when HydraDB fails during the path query", async () => {
