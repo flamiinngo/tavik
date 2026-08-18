@@ -70,16 +70,24 @@
   --text-2xs--letter-spacing: 0.04em;
 
   /* ── Radii ────────────────────────────────────────────────────────────────
-     Small and consistent. Nothing here is rounded enough to read as playful. */
-  --radius-xs: 3px;
-  --radius-sm: 5px;
-  --radius-md: 7px;
-  --radius-lg: 10px;
+     Generous. Rounded, elevated cards are what make a dense security tool feel
+     approachable rather than like a terminal dump — the difference between a
+     product someone wants to open and one they tolerate. The scale is still
+     consistent, so "soft" never becomes "sloppy". */
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+  --radius-pill: 999px;
 
   /* ── Elevation ────────────────────────────────────────────────────────────
-     Shadows are nearly invisible; separation comes from surface steps and
-     hairline borders. */
-  --shadow-panel: 0 1px 2px oklch(0 0 0 / 40%);
+     Cards sit *above* the page rather than being drawn onto it. On a near-black
+     ground a shadow alone is invisible, so elevation is carried by a hairline
+     top highlight plus a soft drop — the same trick a physical card uses,
+     catching light on its top edge. */
+  --shadow-panel: 0 1px 0 0 oklch(1 0 0 / 4%) inset, 0 2px 8px -2px oklch(0 0 0 / 50%);
+  --shadow-card: 0 1px 0 0 oklch(1 0 0 / 5%) inset, 0 8px 24px -8px oklch(0 0 0 / 60%);
   --shadow-overlay: 0 16px 40px -12px oklch(0 0 0 / 70%);
 
   /* ── Motion ───────────────────────────────────────────────────────────────

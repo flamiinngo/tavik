@@ -241,6 +241,28 @@ export async function loadBoundary(id: string): Promise<{
   }
 }
 
+/**
+ * Publishers currently under review.
+ *
+ * Read so the demo control can show the right action — putting someone under
+ * review versus finishing the review — rather than assuming a starting state
+ * that a previous run may already have changed.
+ */
+export async function quarantinedPublishers(): Promise<string[]> {
+  try {
+    const urns = await tavik().store.resolveSelector({
+      kind: "Maintainer",
+      property: "trust",
+      value: "quarantined",
+      description: "publishers under review",
+    });
+    // URNs are `tavik:maintainer:<name>`; the caller wants the account name.
+    return urns.map((urn) => String(urn).split(":").slice(2).join(":"));
+  } catch {
+    return [];
+  }
+}
+
 /** The work log, across all boundaries. */
 export async function loadWorkLog(limit = 60): Promise<{
   events: readonly ChangeEvent[];
