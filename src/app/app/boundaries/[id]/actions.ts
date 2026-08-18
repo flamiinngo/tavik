@@ -40,7 +40,7 @@ export async function applyRemediation(
   to: string,
   relation: string,
 ): Promise<RemediationResult> {
-  const boundary = findBoundary(boundaryId);
+  const boundary = await findBoundary(boundaryId);
 
   const failed = (message: string): RemediationResult => ({
     ok: false,
@@ -147,11 +147,13 @@ async function recordOutcome(
       }),
     ]);
 
-    await changeLog.recordVerification(
-      { ...findBoundary(boundaryId)! },
-      after,
-      { status: before.status, paths: [] },
-    );
+    const rule = await findBoundary(boundaryId);
+    if (rule) {
+      await changeLog.recordVerification(rule, after, {
+        status: before.status,
+        paths: [],
+      });
+    }
   } catch {
     // Intentionally swallowed — see above.
   }

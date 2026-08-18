@@ -52,7 +52,7 @@ export async function setPublisherTrust(
 
     // Re-check the boundary this actually affects, with the same engine that
     // reports it everywhere else.
-    const boundary = findBoundary("blocked-publishers");
+    const boundary = await findBoundary("blocked-publishers");
     const verification = boundary
       ? await verifyBoundary(store, client, boundary)
       : null;

@@ -8,6 +8,7 @@ import {
 } from "@/lib/domain/boundary";
 import type { ChangeEvent } from "@/lib/domain/change";
 import { ChangeLog } from "@/lib/engine/change-log";
+import { RuleStore } from "@/lib/engine/rule-store";
 import { verifyBoundary } from "@/lib/engine/verify";
 import { hydraEnv } from "@/lib/env";
 import { HydraClient } from "@/lib/hydra/client";
@@ -27,26 +28,54 @@ import { GraphStore } from "@/lib/hydra/graph-store";
  * outright.
  */
 
-let cached: { client: HydraClient; store: GraphStore; changeLog: ChangeLog } | null = null;
+let cached: {
+  client: HydraClient;
+  store: GraphStore;
+  changeLog: ChangeLog;
+  rules: RuleStore;
+} | null = null;
 
 export function tavik() {
   if (!cached) {
     const client = new HydraClient(hydraEnv());
-    cached = { client, store: new GraphStore(client), changeLog: new ChangeLog(client) };
+    cached = {
+      client,
+      store: new GraphStore(client),
+      changeLog: new ChangeLog(client),
+      rules: new RuleStore(client),
+    };
   }
   return cached;
 }
 
 /**
- * The boundaries this workspace has declared.
+ * The rules this workspace has declared.
  *
- * Defined in code for now. Boundary authoring — the UI where a team writes a
- * rule in plain language — is not built yet, and seeding a fake "saved" boundary
- * into the database would misrepresent a feature that does not exist. These are
- * real definitions evaluated against real state; only their authoring is
- * pending.
+ * Read from the database, so they are whatever the user actually wrote. The set
+ * below is used only to seed a brand-new workspace: without it the first visit
+ * would show an empty product and nothing to react to, which teaches nobody
+ * anything. Once seeded they are ordinary saved rules — editable and deletable
+ * like any other.
  */
-export const BOUNDARIES: readonly SecurityBoundary[] = [
+export async function loadRules(): Promise<readonly SecurityBoundary[]> {
+  const { rules } = tavik();
+  const saved = await rules.list();
+  if (saved.length > 0) return saved;
+
+  for (const rule of STARTER_RULES) {
+    await rules.save(rule);
+  }
+  return STARTER_RULES;
+}
+
+/**
+ * Rules seeded into a brand-new workspace.
+ *
+ * Used once, when nothing has been saved yet. Without them a first visit shows
+ * an empty product with nothing to react to. After seeding they are ordinary
+ * saved rules, editable and deletable like any the user writes themselves.
+ */
+const STARTER_RULES: readonly SecurityBoundary[] = [
   {
     id: "production-isolation",
     name: "Outside publishers",
@@ -141,8 +170,9 @@ export const BOUNDARIES: readonly SecurityBoundary[] = [
   },
 ];
 
-export function findBoundary(id: string): SecurityBoundary | undefined {
-  return BOUNDARIES.find((boundary) => boundary.id === id);
+export async function findBoundary(id: string): Promise<SecurityBoundary | undefined> {
+  const rules = await loadRules();
+  return rules.find((rule) => rule.id === id);
 }
 
 export interface SecurityStateSummary {
@@ -186,7 +216,9 @@ export async function loadSecurityState(): Promise<SecurityStateSummary> {
 
   const boundaries: BoundaryWithVerification[] = [];
 
-  for (const boundary of BOUNDARIES) {
+  const rules = connectionError ? STARTER_RULES : await loadRules();
+
+  for (const boundary of rules) {
     if (connectionError) {
       boundaries.push({ boundary, verification: null });
       continue;
@@ -216,7 +248,7 @@ export async function loadBoundary(id: string): Promise<{
   history: readonly ChangeEvent[];
   connectionError: string | null;
 } | null> {
-  const boundary = findBoundary(id);
+  const boundary = await findBoundary(id);
   if (!boundary) return null;
 
   const { client, store, changeLog } = tavik();
