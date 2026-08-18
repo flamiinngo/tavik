@@ -91,14 +91,19 @@
      headline should be able to carry the answer across a room, and tight
      leading with negative tracking is what makes size read as confidence rather
      than as shouting. Intended to be stacked over two or three short lines. */
-  --text-display: 4rem;
-  --text-display--line-height: 0.92;
-  --text-display--letter-spacing: -0.035em;
+  /* Fluid, not fixed.
+     A fixed 64px headline is sized for one screen and wrong on every other —
+     it swallowed the viewport on smaller displays and on machines with OS-level
+     scaling, pushing everything else below the fold. clamp() ties the size to
+     the viewport so the headline stays proportionate to the space it has. */
+  --text-display: clamp(2.25rem, 4.2vw, 3.75rem);
+  --text-display--line-height: 0.98;
+  --text-display--letter-spacing: -0.032em;
   --text-display--font-weight: 600;
 
-  --text-display-sm: 2.75rem;
-  --text-display-sm--line-height: 0.95;
-  --text-display-sm--letter-spacing: -0.03em;
+  --text-display-sm: clamp(1.75rem, 3vw, 2.5rem);
+  --text-display-sm--line-height: 1.02;
+  --text-display-sm--letter-spacing: -0.026em;
   --text-display-sm--font-weight: 600;
 
   /* ── Radii ────────────────────────────────────────────────────────────────

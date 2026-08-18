@@ -1,6 +1,4 @@
-import Link from "next/link";
-
-import { Tavik } from "@/components/mascot/Tavik";
+import { Logo } from "@/components/brand/Logo";
 import { NavLink } from "@/components/app/NavLink";
 
 /**
@@ -51,10 +49,9 @@ export default function AppLayout({ children }: LayoutProps<"/app">) {
   return (
     <div className="flex min-h-screen bg-canvas">
       <aside className="hidden w-64 shrink-0 flex-col px-4 py-5 lg:flex">
-        <Link href="/app" className="mb-7 flex items-center gap-3 px-2">
-          <Tavik pose="profile" size="sm" alt="" />
-          <span className="text-[17px] font-semibold tracking-tight text-ink">Tavik</span>
-        </Link>
+        <div className="mb-7 px-2">
+          <Logo href="/app" />
+        </div>
 
         <nav className="flex-1" aria-label="Main">
           <ul className="space-y-1">
