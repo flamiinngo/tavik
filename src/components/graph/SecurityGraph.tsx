@@ -47,17 +47,28 @@ interface SimEdge extends SimulationLinkDatum<SimNode> {
   routeCount: number;
 }
 
+/**
+ * Node colours.
+ *
+ * Tuned for a light ground. On white, a mid grey dot reads as disabled and a
+ * pale tint disappears entirely, so these run darker and more saturated than the
+ * equivalents elsewhere in the UI — the graph has to hold its own against a
+ * bright card rather than glow on a dark one.
+ */
 const KIND_COLOR: Record<string, string> = {
-  Maintainer: "var(--color-violated)",
-  Package: "var(--color-ink-muted)",
-  Release: "var(--color-ink-subtle)",
-  Service: "var(--color-accent)",
-  Repository: "var(--color-ink-faint)",
-  Environment: "var(--color-ink-faint)",
-  CiJob: "var(--color-investigating)",
-  Role: "var(--color-investigating)",
-  Datastore: "var(--color-accent)",
+  Maintainer: "#b42342",
+  Package: "#414a5a",
+  Release: "#7b8494",
+  Service: "#0b7285",
+  Repository: "#a8afba",
+  Environment: "#a8afba",
+  CiJob: "#9a6206",
+  Role: "#9a6206",
+  Datastore: "#0b7285",
 };
+
+/** Edge colour, dark enough to survive on white at low opacity. */
+const EDGE_COLOR = "#c0395a";
 
 const WIDTH = 1000;
 const HEIGHT = 520;
@@ -179,7 +190,7 @@ export function SecurityGraph({
             markerHeight="5"
             orient="auto-start-reverse"
           >
-            <path d="M 0 0 L 8 4 L 0 8 z" fill="var(--color-violated)" opacity="0.5" />
+            <path d="M 0 0 L 8 4 L 0 8 z" fill={EDGE_COLOR} opacity="0.55" />
           </marker>
         </defs>
 
@@ -203,9 +214,9 @@ export function SecurityGraph({
                 key={edge.id}
                 d={`M ${source.x} ${source.y} Q ${midX + bow} ${midY} ${target.x} ${target.y}`}
                 fill="none"
-                stroke="var(--color-violated)"
+                stroke={EDGE_COLOR}
                 strokeWidth={Math.min(1 + Math.log2(edge.routeCount + 1) * 0.9, 4)}
-                strokeOpacity={dimmed ? 0.05 : 0.3}
+                strokeOpacity={dimmed ? 0.07 : 0.45}
                 markerEnd="url(#arrow)"
                 className="transition-[stroke-opacity] duration-200"
               />
@@ -239,9 +250,8 @@ export function SecurityGraph({
                 <circle
                   r={radius}
                   fill={KIND_COLOR[node.kind] ?? "var(--color-ink-subtle)"}
-                  fillOpacity={node.isSource || node.isTarget ? 0.95 : 0.6}
-                  stroke="var(--color-base)"
-                  strokeWidth={1.5}
+                  fillOpacity={node.isSource || node.isTarget ? 1 : 0.82}
+                  stroke="#ffffff"                  strokeWidth={2}
                 />
                 {/* Labels are rationed. Every node labelled turns the middle of
                     a dense graph into unreadable overlap, so only the ends, the
@@ -255,7 +265,7 @@ export function SecurityGraph({
                     textAnchor="middle"
                     className="pointer-events-none select-none font-mono"
                     fontSize={9}
-                    fill="var(--color-ink)"
+                    fill="#0d1420"
                     opacity={hovered === node.id ? 1 : 0.7}
                   >
                     {node.label.length > 22 ? `${node.label.slice(0, 21)}…` : node.label}

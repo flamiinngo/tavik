@@ -45,7 +45,7 @@ export interface PathTraceProps {
 }
 
 const TONES = {
-  danger: { rail: "bg-violated/40", node: "text-violated", edge: "text-violated/70" },
+  danger: { rail: "bg-alert/40", node: "text-alert", edge: "text-alert/70" },
   accent: { rail: "bg-accent/40", node: "text-accent", edge: "text-accent/70" },
   muted: { rail: "bg-line-strong", node: "text-ink-subtle", edge: "text-ink-faint" },
 } as const;

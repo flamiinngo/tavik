@@ -28,28 +28,16 @@ export function NavLink({
   // `/app` must not match every child route, so the root is compared exactly.
   const isActive = href === "/app" ? pathname === "/app" : pathname.startsWith(href);
 
-  if (!ready) {
-    return (
-      <span
-        className="flex cursor-not-allowed items-center justify-between rounded-md px-2 py-1.5 text-sm text-ink-faint"
-        title="Not built yet"
-      >
-        {children}
-        <span className="text-2xs uppercase tracking-wider text-ink-faint/70">
-          Soon
-        </span>
-      </span>
-    );
-  }
+  if (!ready) return null;
 
   return (
     <Link
       href={href}
       aria-current={isActive ? "page" : undefined}
-      className={`flex items-center rounded-md px-2 py-1.5 text-sm transition-colors duration-150 ${
+      className={`flex items-center rounded-sm px-3 py-2.5 text-[14.5px] transition-colors duration-150 ${
         isActive
-          ? "bg-raised font-medium text-ink"
-          : "text-ink-muted hover:bg-raised/60 hover:text-ink"
+          ? "bg-card font-medium text-ink shadow-card"
+          : "text-ink-soft hover:bg-card/60 hover:text-ink"
       }`}
     >
       {children}

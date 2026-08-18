@@ -48,48 +48,38 @@ const PLANNED = [
 
 export default function AppLayout({ children }: LayoutProps<"/app">) {
   return (
-    <div className="flex min-h-screen">
-      <aside className="hidden w-60 shrink-0 flex-col border-r border-line bg-surface lg:flex">
-        <div className="flex h-14 items-center gap-2.5 border-b border-line px-4">
-          <Tavik pose="profile" size="xs" alt="" />
-          <Link href="/app" className="text-sm font-semibold tracking-tight text-ink">
-            Tavik
-          </Link>
-        </div>
+    <div className="flex min-h-screen bg-canvas">
+      <aside className="hidden w-64 shrink-0 flex-col px-4 py-5 lg:flex">
+        <Link href="/app" className="mb-7 flex items-center gap-3 px-2">
+          <Tavik pose="profile" size="sm" alt="" />
+          <span className="text-[17px] font-semibold tracking-tight text-ink">Tavik</span>
+        </Link>
 
-        <nav className="flex-1 overflow-y-auto px-2 py-4" aria-label="Main">
-          {SECTIONS.map((section) => (
-            <div key={section.heading} className="mb-5">
-              <p className="px-2 pb-1.5 text-2xs font-semibold uppercase tracking-wider text-ink-faint">
-                {section.heading}
-              </p>
-              <ul className="space-y-0.5">
-                {section.items.map((item) => (
-                  <li key={item.href}>
-                    <NavLink href={item.href} ready={item.ready}>
-                      {item.label}
-                    </NavLink>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+        <nav className="flex-1" aria-label="Main">
+          <ul className="space-y-1">
+            {SECTIONS.flatMap((section) => section.items).map((item) => (
+              <li key={item.href}>
+                <NavLink href={item.href} ready={item.ready}>
+                  {item.label}
+                </NavLink>
+              </li>
+            ))}
+          </ul>
         </nav>
 
-        <div className="space-y-3 border-t border-line px-4 py-4">
-          <div>
-            <p className="text-2xs font-semibold uppercase tracking-wider text-ink-faint">
-              Planned
-            </p>
-            <p className="mt-1.5 text-2xs leading-relaxed text-ink-faint/70">
-              {PLANNED.join(" · ")}
-            </p>
-          </div>
-          <p className="flex items-center gap-2 border-t border-line pt-3 font-mono text-2xs text-ink-faint">
-            <span className="size-1.5 animate-breathe rounded-full bg-verified" aria-hidden />
-            HydraDB · local
+        <div className="rounded-md bg-card p-4 shadow-card">
+          <p className="flex items-center gap-2 text-[13px] font-medium text-ink">
+            <span className="size-1.5 animate-breathe rounded-pill bg-safe" aria-hidden />
+            Watching now
+          </p>
+          <p className="mt-1.5 text-[12.5px] leading-relaxed text-ink-subtle">
+            Connected to HydraDB. Re-checks every rule whenever anything changes.
           </p>
         </div>
+
+        <p className="mt-4 px-2 text-[11.5px] leading-relaxed text-ink-faint">
+          Coming soon · {PLANNED.join(" · ")}
+        </p>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">{children}</div>
