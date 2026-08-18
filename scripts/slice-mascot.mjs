@@ -85,10 +85,9 @@ const cellHeight = Math.round(meta.height / ROWS);
  * 8-connectivity, so a pose joined only diagonally (a cape tip, a claw) stays
  * one component rather than being split and partly erased.
  */
-function largestComponent(mask, width, height) {
+function labelComponents(mask, width, height) {
   const labels = new Int32Array(width * height).fill(-1);
-  let bestLabel = -1;
-  let bestSize = 0;
+  const sizes = new Map();
   let nextLabel = 0;
 
   const stack = [];
@@ -121,80 +120,110 @@ function largestComponent(mask, width, height) {
       }
     }
 
-    if (size > bestSize) {
-      bestSize = size;
-      bestLabel = label;
-    }
+    sizes.set(label, size);
   }
 
-  return { labels, bestLabel, bestSize };
+  return { labels, sizes };
 }
 
 await mkdir(outDir, { recursive: true });
+
+/*
+ * Label components across the ENTIRE sheet, once.
+ *
+ * The previous version flood-filled inside each cell, which silently amputated
+ * every pose that overhangs its cell boundary — the alert pose lost part of its
+ * body and a claw. A character is not confined to the grid it was laid out on,
+ * so the component has to be traced wherever it actually goes and the crop taken
+ * from its true extent.
+ */
+const sheetMask = new Uint8Array(meta.width * meta.height);
+for (let i = 0; i < sheetMask.length; i++) {
+  sheetMask[i] = data[i * channels + 3] > ALPHA_THRESHOLD ? 1 : 0;
+}
+
+const { labels: sheetLabels, sizes: componentSizes } = labelComponents(
+  sheetMask,
+  meta.width,
+  meta.height,
+);
 
 for (const pose of POSES) {
   const x0 = pose.col * cellWidth;
   const y0 = pose.row * cellHeight;
 
-  // Copy the cell out of the sheet, building an alpha mask alongside it.
-  const cell = Buffer.alloc(cellWidth * cellHeight * 4);
-  const mask = new Uint8Array(cellWidth * cellHeight);
-
-  for (let y = 0; y < cellHeight; y++) {
-    for (let x = 0; x < cellWidth; x++) {
-      const source = ((y0 + y) * sheetWidth + (x0 + x)) * channels;
-      const target = (y * cellWidth + x) * 4;
-      cell[target] = data[source];
-      cell[target + 1] = data[source + 1];
-      cell[target + 2] = data[source + 2];
-      const alpha = data[source + 3];
-      cell[target + 3] = alpha;
-      mask[y * cellWidth + x] = alpha > ALPHA_THRESHOLD ? 1 : 0;
+  // Which component owns this cell: the one with the most pixels inside it.
+  const massInCell = new Map();
+  for (let y = y0; y < y0 + cellHeight; y++) {
+    for (let x = x0; x < x0 + cellWidth; x++) {
+      const label = sheetLabels[y * meta.width + x];
+      if (label === -1) continue;
+      massInCell.set(label, (massInCell.get(label) ?? 0) + 1);
     }
   }
 
-  const { labels, bestLabel, bestSize } = largestComponent(mask, cellWidth, cellHeight);
+  let bestLabel = -1;
+  let bestMass = 0;
+  for (const [label, mass] of massInCell) {
+    if (mass > bestMass) {
+      bestMass = mass;
+      bestLabel = label;
+    }
+  }
+
   if (bestLabel === -1) {
     console.error(`cell (${pose.col},${pose.row}) is empty — skipping ${pose.name}`);
     continue;
   }
 
-  // Erase everything that is not the pose, and measure what remains.
-  let minX = cellWidth;
-  let minY = cellHeight;
+  // The component's true bounds, anywhere on the sheet.
+  let minX = meta.width;
+  let minY = meta.height;
   let maxX = -1;
   let maxY = -1;
-  let erased = 0;
-
-  for (let y = 0; y < cellHeight; y++) {
-    for (let x = 0; x < cellWidth; x++) {
-      const index = y * cellWidth + x;
-      if (labels[index] === bestLabel) {
-        if (x < minX) minX = x;
-        if (x > maxX) maxX = x;
-        if (y < minY) minY = y;
-        if (y > maxY) maxY = y;
-      } else if (cell[index * 4 + 3] !== 0) {
-        cell[index * 4 + 3] = 0;
-        erased++;
-      }
+  for (let y = 0; y < meta.height; y++) {
+    for (let x = 0; x < meta.width; x++) {
+      if (sheetLabels[y * meta.width + x] !== bestLabel) continue;
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
     }
   }
 
   const left = Math.max(0, minX - PADDING);
   const top = Math.max(0, minY - PADDING);
-  const region = {
-    left,
-    top,
-    width: Math.min(cellWidth - 1, maxX + PADDING) - left + 1,
-    height: Math.min(cellHeight - 1, maxY + PADDING) - top + 1,
-  };
+  const right = Math.min(meta.width - 1, maxX + PADDING);
+  const bottom = Math.min(meta.height - 1, maxY + PADDING);
+  const width = right - left + 1;
+  const height = bottom - top + 1;
 
-  const cleaned = sharp(cell, {
-    raw: { width: cellWidth, height: cellHeight, channels: 4 },
-  }).extract(region);
+  // Copy just this component, dropping every other pose that overlaps the box.
+  const cell = Buffer.alloc(width * height * 4);
+  let erased = 0;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const sheetIndex = (top + y) * meta.width + (left + x);
+      const source = sheetIndex * channels;
+      const target = (y * width + x) * 4;
+      const mine = sheetLabels[sheetIndex] === bestLabel;
 
-  const cropped = await cleaned.png().toBuffer();
+      cell[target] = data[source];
+      cell[target + 1] = data[source + 1];
+      cell[target + 2] = data[source + 2];
+      cell[target + 3] = mine ? data[source + 3] : 0;
+      if (!mine && data[source + 3] !== 0) erased++;
+    }
+  }
+
+  const bestSize = componentSizes.get(bestLabel) ?? 0;
+  const region = { left: 0, top: 0, width, height };
+
+  const cropped = await sharp(cell, {
+    raw: { width, height, channels: 4 },
+  })
+    .png()
+    .toBuffer();
 
   for (const width of WIDTHS) {
     const suffix = width === Math.max(...WIDTHS) ? "" : `@${width}`;
