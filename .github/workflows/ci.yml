@@ -1,0 +1,39 @@
+# Tavik's own build.
+#
+# Types and unit tests, on every push. Deliberately not the whole suite: the
+# integration tests talk to a live HydraDB and the ingestion tests would talk to
+# the public npm registry, and a build that fails because somebody else's service
+# is having a bad morning teaches a team to ignore red builds.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Types
+        run: npm run typecheck
+
+      - name: Tests
+        # Everything that runs without a database or a network. The live-HydraDB
+        # integration test skips itself when it cannot reach one, which is why it
+        # is safe to include here.
+        run: npm test
+
+      - name: Build
+        run: npm run build

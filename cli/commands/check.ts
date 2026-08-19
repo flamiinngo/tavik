@@ -10,6 +10,8 @@
  * whoever pushed.
  */
 
+import { appendFileSync } from "node:fs";
+
 import { summarisePath } from "../../src/lib/domain/change";
 import type { SecurityBoundary } from "../../src/lib/domain/boundary";
 import { verifyBoundary } from "../../src/lib/engine/verify";
@@ -31,6 +33,7 @@ import {
   yellow,
 } from "../output";
 import { EXIT, runtime } from "../runtime";
+import { renderMarkdownSummary } from "../summary";
 
 export interface CheckOptions {
   readonly config: RepoConfig;
@@ -40,6 +43,14 @@ export interface CheckOptions {
   readonly operator: string;
   /** How many routes to print per broken rule. The rest are counted. */
   readonly showPaths: number;
+  /**
+   * Write a markdown report here as well as printing the usual output.
+   *
+   * In GitHub Actions this is `$GITHUB_STEP_SUMMARY`, which renders on the run
+   * page without needing a token or any permission — so it works on a fork's
+   * pull request, where posting a comment would silently fail.
+   */
+  readonly summaryPath?: string;
 }
 
 interface RuleOutcome {
@@ -130,6 +141,8 @@ export async function check(options: CheckOptions): Promise<number> {
   const unchecked = outcomes.filter((o) => o.verification.status === "unknown");
   const holding = outcomes.filter((o) => o.verification.status === "verified");
 
+  writeSummary(options, outcomes, Date.now() - startedAt);
+
   if (options.json) {
     line(
       JSON.stringify(
@@ -168,6 +181,36 @@ export async function check(options: CheckOptions): Promise<number> {
 
   renderReport(outcomes, broken, unchecked, holding, Date.now() - startedAt, options, applied);
   return exitCode(broken.length, unchecked.length, options.failOnUnknown);
+}
+
+/**
+ * Hand the build a readable explanation of itself.
+ *
+ * Never allowed to fail the run. A report is an explanation of the verdict, not
+ * the verdict — losing it because a path was unwritable must not turn a passing
+ * build red or a failing one green.
+ */
+function writeSummary(
+  options: CheckOptions,
+  outcomes: readonly RuleOutcome[],
+  elapsedMs: number,
+): void {
+  if (!options.summaryPath) return;
+  try {
+    appendFileSync(
+      options.summaryPath,
+      `${renderMarkdownSummary({
+        outcomes,
+        elapsedMs,
+        failOnUnknown: options.failOnUnknown,
+        showPaths: options.showPaths,
+      })}
+`,
+      "utf8",
+    );
+  } catch {
+    // Intentionally swallowed — see above.
+  }
 }
 
 function exitCode(broken: number, unchecked: number, failOnUnknown: boolean): number {

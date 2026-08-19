@@ -1,0 +1,146 @@
+name: Tavik
+description: >-
+  Verify that a change hasn't opened a route into something you said must never
+  be reachable. Fails the build when a rule breaks.
+author: Tavik
+
+branding:
+  icon: shield
+  color: blue
+
+# ── What this needs from you ──────────────────────────────────────────────────
+#
+# A HydraDB your runner can reach, and a token for it. Tavik keeps its graph
+# there, and the graph is the point: the same one the dashboard reads, so a
+# failure here is visible to your whole team seconds later, and a publisher
+# somebody approved on the dashboard makes this check pass on the next run.
+#
+# There is no hosted option and this action does not pretend otherwise.
+inputs:
+  hydra-url:
+    description: Where your HydraDB is. Must be reachable from the runner.
+    required: true
+  hydra-token:
+    description: HydraDB auth token. Pass it from a secret, never inline.
+    required: true
+  service:
+    description: What to call this project in the graph. Defaults to the repository name.
+    required: false
+  environment:
+    description: Which environment this project runs in.
+    required: false
+    default: production
+  lockfile:
+    description: Path to the lockfile. Auto-detected when empty.
+    required: false
+  scan:
+    description: >-
+      Read this project into the graph before checking. Turn off to check
+      against whatever is already there.
+    required: false
+    default: "true"
+  fail-on-unchecked:
+    description: >-
+      Fail when a rule could not be checked at all. On by default, deliberately:
+      "not checked" is not "safe".
+    required: false
+    default: "true"
+  rule:
+    description: Check one rule by id instead of all of them.
+    required: false
+  routes:
+    description: How many routes to show per broken rule.
+    required: false
+    default: "3"
+  operator:
+    description: >-
+      Who to record this run as in the work log. Defaults to whoever triggered
+      the workflow.
+    required: false
+
+outputs:
+  status:
+    description: ok, broken, or unchecked
+    value: ${{ steps.check.outputs.status }}
+  broken:
+    description: How many rules have a way through.
+    value: ${{ steps.check.outputs.broken }}
+  unchecked:
+    description: How many rules could not be checked.
+    value: ${{ steps.check.outputs.unchecked }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: "22"
+
+    - name: Install Tavik
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      # Against the action's own checkout, not the caller's — the caller's
+      # node_modules belong to their project and have nothing to do with running
+      # this. Dev dependencies are not omitted: `tsx` runs the CLI itself.
+      run: npm ci --ignore-scripts || npm install --ignore-scripts
+
+    - name: Scan this project
+      if: inputs.scan == 'true'
+      shell: bash
+      env:
+        TAVIK_HYDRA_URL: ${{ inputs.hydra-url }}
+        TAVIK_HYDRA_TOKEN: ${{ inputs.hydra-token }}
+        TAVIK_OPERATOR: ${{ inputs.operator || format('{0} (via CI)', github.actor) }}
+      run: |
+        node "${{ github.action_path }}/bin/tavik.mjs" scan \
+          ${{ inputs.service && format('--service "{0}"', inputs.service) || format('--service "{0}"', github.repository) }} \
+          --environment "${{ inputs.environment }}" \
+          ${{ inputs.lockfile && format('--lockfile "{0}"', inputs.lockfile) || '' }}
+
+    - name: Check the rules
+      id: check
+      shell: bash
+      env:
+        TAVIK_HYDRA_URL: ${{ inputs.hydra-url }}
+        TAVIK_HYDRA_TOKEN: ${{ inputs.hydra-token }}
+        TAVIK_OPERATOR: ${{ inputs.operator || format('{0} (via CI)', github.actor) }}
+      # The exit code is the contract, so it is captured rather than allowed to
+      # end the step, then re-raised at the end. Without this the outputs would
+      # never be set on the run that most needs them.
+      run: |
+        set +e
+        node "${{ github.action_path }}/bin/tavik.mjs" check \
+          --json \
+          --summary tavik-summary.md \
+          ${{ inputs.rule && format('--rule "{0}"', inputs.rule) || '' }} \
+          --routes "${{ inputs.routes }}" \
+          ${{ inputs.fail-on-unchecked == 'true' && '' || '--allow-unchecked' }} \
+          > tavik-result.json
+        code=$?
+        set -e
+
+        # The report goes to the run page and to the log. Somebody debugging a
+        # failure should not have to leave the logs to find out what broke.
+        if [ -f tavik-summary.md ]; then
+          cat tavik-summary.md
+          cat tavik-summary.md >> "$GITHUB_STEP_SUMMARY"
+        fi
+
+        broken=$(node -e "try{const r=require('./tavik-result.json');console.log(r.summary?.broken??0)}catch{console.log(0)}")
+        unchecked=$(node -e "try{const r=require('./tavik-result.json');console.log(r.summary?.unchecked??0)}catch{console.log(0)}")
+
+        case "$code" in
+          0) status=ok ;;
+          1) status=broken ;;
+          2) status=unchecked ;;
+          *) status=error ;;
+        esac
+
+        {
+          echo "status=$status"
+          echo "broken=$broken"
+          echo "unchecked=$unchecked"
+        } >> "$GITHUB_OUTPUT"
+
+        exit $code

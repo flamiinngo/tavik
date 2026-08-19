@@ -60,6 +60,18 @@ export default function IntegrationsPage() {
       what: "Re-reads watched repositories every fifteen minutes, and only does the expensive work when a lockfile has actually moved. Rules are re-checked every minute against whatever it finds.",
     },
     {
+      name: "Command line",
+      status: "connected",
+      what: "The same engine and the same graph, from your terminal. `tavik scan` reads the project you're standing in; `tavik check` answers every rule and exits non-zero when one breaks.",
+      setup: "npx tavik init && npx tavik scan && npx tavik check",
+    },
+    {
+      name: "GitHub Actions",
+      status: "connected",
+      what: "Runs the check on every pull request and fails the build when a change opens a route into production. Writes the routes it found to the run summary, so the failure explains itself. Needs a HydraDB your runner can reach.",
+      setup: "uses: tavik-security/tavik@v1",
+    },
+    {
       name: "Named operators",
       status: "connected",
       what: "Every approval is filed under a named person, and roles are enforced on the server for every action. Attribution, not authentication — Tavik runs as one workspace with nothing to check a password against, and the Team screen says so.",

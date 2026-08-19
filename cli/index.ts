@@ -54,6 +54,7 @@ const USAGE = `
     --allow-unchecked       Don't fail the build on a rule that couldn't be checked
     --as "<name>"           Who to record this as ${dim("(default: $TAVIK_OPERATOR, or the CI actor)")}
     --routes <n>            How many routes to print per broken rule ${dim("(default: 3)")}
+    --summary <path>        Also write a markdown report there ${dim("(CI uses $GITHUB_STEP_SUMMARY)")}
     --force                 Overwrite an existing config on init
     --help, --version
 
@@ -118,6 +119,7 @@ const VALUE_FLAGS = new Set([
   "as",
   "routes",
   "config",
+  "summary",
 ]);
 
 function splitOnce(text: string, separator: string): [string, string | undefined] {
@@ -200,6 +202,8 @@ export async function main(argv: readonly string[]): Promise<number> {
         failOnUnknown: failOnUnchecked(),
         operator,
         showPaths: num(flags, "routes", 3),
+        // GitHub sets GITHUB_STEP_SUMMARY itself, so CI needs no extra flag.
+        summaryPath: str(flags, "summary") ?? process.env.GITHUB_STEP_SUMMARY,
       });
 
     case "rules": {

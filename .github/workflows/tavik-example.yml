@@ -1,0 +1,56 @@
+# Tavik on every pull request.
+#
+# Copy this into your own repository as `.github/workflows/tavik.yml`.
+#
+# It is disabled here on purpose — `workflow_dispatch` only — because this
+# repository has no HydraDB for a runner to reach, and a workflow that fails on
+# every push would be a poor advertisement for a tool about not crying wolf.
+#
+# ── What you need first ──────────────────────────────────────────────────────
+#
+# A HydraDB your runner can reach, and its token in
+# Settings → Secrets and variables → Actions:
+#
+#   TAVIK_HYDRA_URL     https://hydra.your-company.internal
+#   TAVIK_HYDRA_TOKEN   the token from `npm run hydra:setup`
+#
+# It is the same database your dashboard reads. That is the point: a failure
+# here shows up on the dashboard seconds later, and a publisher somebody
+# approved there makes this check pass on the next run.
+#
+# ── One thing to know ────────────────────────────────────────────────────────
+#
+# `scan` writes this branch's dependencies into that shared graph, so a pull
+# request that adds a package makes it visible to everyone until `main` is
+# scanned again. That is usually what you want — the question CI is answering is
+# "if this merged, would production be reachable?" — but it is worth knowing
+# rather than discovering. Running the same workflow on pushes to `main` puts
+# the graph back to what is actually deployed.
+
+name: Tavik
+
+on:
+  workflow_dispatch:
+  # Uncomment in your own repository:
+  # pull_request:
+  # push:
+  #   branches: [main]
+
+jobs:
+  boundaries:
+    name: Security boundaries
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify security boundaries
+        uses: ./ # in your repository: tavik-security/tavik@v1
+        with:
+          hydra-url: ${{ secrets.TAVIK_HYDRA_URL }}
+          hydra-token: ${{ secrets.TAVIK_HYDRA_TOKEN }}
+          environment: production
+          # "Not checked" is not "safe". Leave this on unless you have a
+          # deliberate reason: a build that goes green on a rule nobody answered
+          # is the exact false assurance Tavik exists to prevent.
+          fail-on-unchecked: "true"
