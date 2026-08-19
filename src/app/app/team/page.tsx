@@ -1,4 +1,5 @@
 import { IdentifyForm } from "@/components/team/IdentifyForm";
+import { StartFresh } from "@/components/team/StartFresh";
 import { Card } from "@/components/ui/Card";
 import { EmptyState, Timestamp } from "@/components/ui/primitives";
 import {
@@ -91,6 +92,8 @@ export default async function TeamPage() {
                 checks against is on trust.
               </p>
             </Card>
+
+            <StartFresh canReset={can(operator.role, "manageWorkspace")} />
           </div>
 
           <Card className="p-5">
