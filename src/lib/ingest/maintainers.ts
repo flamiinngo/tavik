@@ -69,7 +69,12 @@ export interface MaintainerIngestResult {
   };
 }
 
-const DEFAULT_CONCURRENCY = 6;
+// Measured rather than guessed. On warm connections, 50 packages took 6802ms at
+// a concurrency of 6, 4688ms at 12, and 4224ms at 24 — so 6 was leaving real
+// time on the table, and anything past 12 buys almost nothing. Twelve is where
+// the registry stops being the bottleneck, which is also where asking it for
+// more would be taking without getting.
+const DEFAULT_CONCURRENCY = 12;
 
 /**
  * Run an async mapper over items with a bounded number in flight.

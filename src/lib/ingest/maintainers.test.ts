@@ -11,6 +11,8 @@ interface StubPackument {
   versions?: string[];
   latest?: string;
   status?: number;
+  /** version → deprecation notice. */
+  deprecated?: Record<string, string>;
 }
 
 function stubRegistry(packages: Record<string, StubPackument>) {
@@ -26,17 +28,28 @@ function stubRegistry(packages: Record<string, StubPackument>) {
       return new Response("error", { status: entry.status });
     }
 
+    const versions = entry.versions ?? ["1.0.0"];
+
     return new Response(
       JSON.stringify({
         name,
-        "dist-tags": { latest: entry.latest ?? "1.0.0" },
+        "dist-tags": { latest: entry.latest ?? versions[0] ?? "1.0.0" },
         versions: Object.fromEntries(
-          (entry.versions ?? ["1.0.0"]).map((v) => [v, { name, version: v, dependencies: {} }]),
+          versions.map((v) => [
+            v,
+            {
+              name,
+              version: v,
+              dependencies: {},
+              ...(entry.deprecated?.[v] ? { deprecated: entry.deprecated[v] } : {}),
+            },
+          ]),
         ),
-        time: Object.fromEntries(
-          (entry.versions ?? ["1.0.0"]).map((v) => [v, "2026-01-01T00:00:00.000Z"]),
-        ),
-        maintainers: (entry.maintainers ?? []).map((name) => ({ name, email: `${name}@x` })),
+        time: Object.fromEntries(versions.map((v) => [v, "2026-01-01T00:00:00.000Z"])),
+        maintainers: (entry.maintainers ?? []).map((handle) => ({
+          name: handle,
+          email: `${handle}@x`,
+        })),
       }),
       { status: 200, headers: { "content-type": "application/json" } },
     );
@@ -223,5 +236,93 @@ describe("publisherConcentration", () => {
       observedAt,
     });
     expect(publisherConcentration(result)[0].trust).toBe("trusted");
+  });
+});
+
+/**
+ * Deprecation, which the "abandoned code" rule matches on directly.
+ *
+ * This moved when ingestion stopped downloading full packuments: the flag used
+ * to be read out of the packument's per-version map, and now comes from the
+ * version document itself. If it were lost in that move, a package the author
+ * has abandoned would sail straight past the rule written to catch it — a
+ * silent false green, which is the worst thing this system can produce.
+ */
+describe("deprecation", () => {
+  it("marks a release the author has abandoned", async () => {
+    stubRegistry({
+      flatten: {
+        maintainers: ["jesusabdullah"],
+        versions: ["1.0.3"],
+        deprecated: { "1.0.3": "flatten is deprecated in favor of lodash." },
+      },
+    });
+
+    const result = await ingestMaintainers(new Map([["flatten", new Set(["1.0.3"])]]), {
+      trustedPublishers: new Set(),
+      observedAt,
+    });
+
+    const release = result.entities.find((entity) => entity.kind === "Release");
+    expect(release?.attributes?.deprecated).toBe(true);
+    expect(release?.attributes?.deprecationNotice).toContain("lodash");
+  });
+
+  it("leaves a healthy release unmarked", async () => {
+    stubRegistry({ lodash: { maintainers: ["jdalton"], versions: ["4.17.21"] } });
+
+    const result = await ingestMaintainers(new Map([["lodash", new Set(["4.17.21"])]]), {
+      trustedPublishers: new Set(),
+      observedAt,
+    });
+
+    const release = result.entities.find((entity) => entity.kind === "Release");
+    expect(release?.attributes?.deprecated).toBe(false);
+  });
+
+  it("marks only the version that is actually deprecated", async () => {
+    // The flag is per version, not per package. Treating it as package-level
+    // would condemn every version of a library that deprecated one old release.
+    stubRegistry({
+      pkg: {
+        maintainers: ["someone"],
+        versions: ["1.0.0", "2.0.0"],
+        latest: "2.0.0",
+        deprecated: { "1.0.0": "no longer supported" },
+      },
+    });
+
+    const result = await ingestMaintainers(new Map([["pkg", new Set(["1.0.0", "2.0.0"])]]), {
+      trustedPublishers: new Set(),
+      observedAt,
+    });
+
+    const byName = new Map(
+      result.entities
+        .filter((entity) => entity.kind === "Release")
+        .map((entity) => [entity.name, entity]),
+    );
+
+    expect(byName.get("pkg@1.0.0")?.attributes?.deprecated).toBe(true);
+    expect(byName.get("pkg@2.0.0")?.attributes?.deprecated).toBe(false);
+  });
+});
+
+describe("a version the registry no longer has", () => {
+  it("keeps the package's publish rights rather than dropping everything", async () => {
+    // Yanked and renamed versions are ordinary in a real lockfile. Losing the
+    // MAINTAINS edge because one version has gone would remove a route from the
+    // graph, and a missing route is one Tavik will never find.
+    stubRegistry({ pkg: { maintainers: ["someone"], versions: ["2.0.0"], latest: "2.0.0" } });
+
+    const result = await ingestMaintainers(new Map([["pkg", new Set(["1.0.0"])]]), {
+      trustedPublishers: new Set(),
+      observedAt,
+    });
+
+    expect(result.failures).toHaveLength(0);
+    expect(result.relations.some((relation) => relation.kind === "MAINTAINS")).toBe(true);
+    // No edge to a release that does not exist.
+    expect(result.relations.some((relation) => relation.kind === "HAS_RELEASE")).toBe(false);
   });
 });
