@@ -84,6 +84,40 @@ export const SOURCE_PRESETS: readonly SelectorPreset[] = [
   },
 ];
 
+// ── Cloud ────────────────────────────────────────────────────────────────
+// The same vocabulary, over infrastructure rather than packages. Nothing about
+// the engine changes; only which adapter produced the graph.
+
+export const CLOUD_SOURCE_PRESETS: readonly SelectorPreset[] = [
+  {
+    id: "ci-identities",
+    label: "Anything running in CI",
+    hint: "Build and deploy pipelines, and the roles they are allowed to assume.",
+    selector: {
+      kind: "CiJob",
+      property: "tag",
+      value: "ci",
+      description: "anything running in CI",
+    },
+    relations: ["RUNS_AS", "CAN_ASSUME", "CAN_ACCESS"],
+  },
+];
+
+export const CLOUD_TARGET_PRESETS: readonly SelectorPreset[] = [
+  {
+    id: "customer-data",
+    label: "Stores holding customer data",
+    hint: "Buckets, tables and databases whose names indicate customer or payment data.",
+    selector: {
+      kind: "Datastore",
+      property: "tag",
+      value: "customer-data",
+      description: "stores holding customer data",
+    },
+    relations: [],
+  },
+];
+
 export const TARGET_PRESETS: readonly SelectorPreset[] = [
   {
     id: "production",
@@ -112,11 +146,11 @@ export const TARGET_PRESETS: readonly SelectorPreset[] = [
 ];
 
 export function findSourcePreset(id: string): SelectorPreset | undefined {
-  return SOURCE_PRESETS.find((preset) => preset.id === id);
+  return [...SOURCE_PRESETS, ...CLOUD_SOURCE_PRESETS].find((preset) => preset.id === id);
 }
 
 export function findTargetPreset(id: string): SelectorPreset | undefined {
-  return TARGET_PRESETS.find((preset) => preset.id === id);
+  return [...TARGET_PRESETS, ...CLOUD_TARGET_PRESETS].find((preset) => preset.id === id);
 }
 
 /**

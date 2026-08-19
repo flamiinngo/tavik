@@ -21,7 +21,8 @@
     "mascot:slice": "node scripts/slice-mascot.mjs",
     "verify": "tsx scripts/verify.mts",
     "demo": "tsx scripts/demo.mts",
-    "reset": "docker compose down && node scripts/wipe-data.mjs && npm run hydra:up"
+    "reset": "docker compose down && node scripts/wipe-data.mjs && npm run hydra:up",
+    "scan": "tsx scripts/scan-repo.mts"
   },
   "dependencies": {
     "d3-force": "^3.0.0",
@@ -31,7 +32,8 @@
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "semver": "^7.8.5",
-    "server-only": "^0.0.1"
+    "server-only": "^0.0.1",
+    "yaml": "^2.9.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

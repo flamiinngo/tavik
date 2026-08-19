@@ -19,7 +19,17 @@
 
 import type { Entity, EntityUrn, Relation } from "@/lib/domain/entities";
 import type { GraphStore } from "@/lib/hydra/graph-store";
-import { parseLockfile, projectLockfile } from "./lockfile";
+import { type LockfileGraph, parseLockfile, projectLockfile } from "./lockfile";
+
+/** A value that has already been parsed into a lockfile graph. */
+function isLockfileGraph(value: unknown): value is LockfileGraph {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    Array.isArray((value as LockfileGraph).packages) &&
+    Array.isArray((value as LockfileGraph).edges)
+  );
+}
 import {
   ingestMaintainers,
   publisherConcentration,
@@ -27,7 +37,13 @@ import {
 } from "./maintainers";
 
 export interface IngestOptions {
-  /** Raw contents of a `package-lock.json`. */
+  /**
+   * A parsed lockfile graph, or the raw contents of one.
+   *
+   * Accepting both lets callers that already know the format hand over a parsed
+   * graph, while simpler ones pass the file through and let detection sort it
+   * out. Everything downstream sees the same shape either way.
+   */
   readonly lockfile: unknown;
   /** Name for the service this lockfile belongs to. Defaults to the project name. */
   readonly serviceName?: string;
@@ -83,7 +99,9 @@ export async function ingestProject(
 
   // ── 1. Lockfile: services, releases, and who supplies whom ────────────────
   options.onProgress?.("reading-lockfile", 0, 1);
-  const graph = parseLockfile(options.lockfile);
+  const graph = isLockfileGraph(options.lockfile)
+    ? options.lockfile
+    : parseLockfile(options.lockfile);
   const projection = projectLockfile(graph, {
     serviceName: options.serviceName,
     environment: options.environment,
@@ -140,9 +158,18 @@ export async function ingestProject(
     existing.set(kind, await store.listRelationsOfKind(kind, { signal: options.signal }));
   }
 
+  // Deduplicate within the batch as well as against what is stored. The same
+  // edge is frequently produced twice in one run — a package supplying two
+  // dependents, a workflow used by several jobs — and writing it twice creates
+  // exactly the duplicate edges this diff exists to prevent.
+  const emitted = new Set<string>();
   const newRelations = relations.filter((relation) => {
-    const seen = existing.get(relation.kind);
-    return !seen?.has(`${relation.from}|${relation.to}`);
+    const key = `${relation.from}|${relation.to}`;
+    if (existing.get(relation.kind)?.has(key)) return false;
+    const batchKey = `${relation.kind}|${key}`;
+    if (emitted.has(batchKey)) return false;
+    emitted.add(batchKey);
+    return true;
   });
 
   const relationsWritten = await store.insertRelations(newRelations, {

@@ -48,6 +48,19 @@ export const ENTITY_KINDS = [
   /** A deployment environment, e.g. production. */
   "Environment",
 
+  // ── CI ────────────────────────────────────────────────────────────────────
+  /**
+   * A third-party GitHub Action, e.g. `actions/checkout`.
+   *
+   * A different risk surface from a dependency, and an under-watched one: an
+   * action runs somebody else's code *inside* your pipeline with whatever
+   * secrets that job holds. A dependency has to reach production to matter; an
+   * action is already somewhere that can mint credentials.
+   */
+  "Action",
+  /** A workflow file, e.g. `.github/workflows/ci.yml`. */
+  "Workflow",
+
   // ── Cloud IAM ─────────────────────────────────────────────────────────────
   /** A CI/CD job or pipeline identity. */
   "CiJob",

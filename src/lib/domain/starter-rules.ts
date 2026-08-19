@@ -105,4 +105,31 @@ export const STARTER_RULES: readonly SecurityBoundary[] = [
     createdAt: 1_755_400_000_000,
     environmentId: "env-local",
   },
+  {
+    // The rule this product was originally conceived around: CI must never be
+    // able to reach production customer data. Answered by the same engine, over
+    // the same relationship vocabulary, as every supply-chain rule — which is
+    // the strongest evidence the model is right rather than fitted to one
+    // dataset.
+    id: "ci-to-customer-data",
+    name: "CI reaching customer data",
+    statement:
+      "Nothing in CI should be able to reach production customer data, at any number of steps.",
+    source: {
+      kind: "CiJob",
+      property: "tag",
+      value: "ci",
+      description: "anything running in CI",
+    },
+    target: {
+      kind: "Datastore",
+      property: "tag",
+      value: "customer-data",
+      description: "stores holding customer data",
+    },
+    relations: ["RUNS_AS", "CAN_ASSUME", "CAN_ACCESS"],
+    maxHops: 8,
+    createdAt: 1_755_400_000_000,
+    environmentId: "env-local",
+  },
 ];

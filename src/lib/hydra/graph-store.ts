@@ -88,10 +88,25 @@ export class GraphStore {
     const collisions = detectCollisions(entities.map((entity) => entity.urn));
     if (collisions.length > 0) throw new NodeIdCollisionError(collisions);
 
+    // Write only what actually differs.
+    //
+    // Rewriting every entity on every scan is the single largest source of
+    // write churn in this system, and churn is not free here: HydraDB is
+    // log-structured, and enough of it degrades every subsequent read. Measured
+    // on an identical graph, the same rule check took 1,198ms against a clean
+    // store and 27,616ms against a churned one — a 23x difference that pushed
+    // verification past the server's 30s limit and made it report `unknown`.
+    //
+    // Relations were already diffed for this reason. Entities were not, so a
+    // re-scan rewrote all ~1,800 of them to change nothing.
+    const unchanged = await this.unchangedEntities(entities, options);
+    const pending = entities.filter((entity) => !unchanged.has(entity.urn));
+    if (pending.length === 0) return 0;
+
     const label = identifier(ENTITY_LABEL);
     let written = 0;
 
-    for (const batch of chunk(entities, WRITE_BATCH_SIZE)) {
+    for (const batch of chunk(pending, WRITE_BATCH_SIZE)) {
       const rows = batch.map((entity) => ({
         id: urnToNodeId(entity.urn),
         urn: entity.urn as string,
@@ -210,6 +225,70 @@ export class GraphStore {
   }
 
   /**
+   * Which of these entities are already stored exactly as given.
+   *
+   * Compares the properties a write would actually set. Anything missing, or
+   * differing in any of them, is treated as pending — the comparison errs
+   * toward writing, since a skipped update leaves the graph stating something
+   * untrue, which is far worse than a redundant write.
+   */
+  private async unchangedEntities(
+    entities: readonly Entity[],
+    options: QueryOptions = {},
+  ): Promise<Set<EntityUrn>> {
+    const label = identifier(ENTITY_LABEL);
+    const unchanged = new Set<EntityUrn>();
+
+    try {
+      const stored = new Map<string, Record<string, unknown>>();
+
+      // Read in batches of WRITE_BATCH_SIZE (500), which keeps every request
+      // under HydraDB's 1024-row result cap. Reading all ids in one query would
+      // silently truncate and make everything past the cap look changed forever.
+      for (const batch of chunk(entities, WRITE_BATCH_SIZE)) {
+        const result = await this.client.query(
+          `UNWIND $ids AS wanted
+           MATCH (e:${label.text} {id: wanted})
+           RETURN e.urn AS urn, e.kind AS kind, e.name AS name, e.source AS source,
+                  e.tag AS tag, e.environment AS environment, e.trust AS trust,
+                  e.deprecated AS deprecated, e.sole_publisher AS sole_publisher`,
+          {
+            ...options,
+            parameters: { ids: batch.map((entity) => urnToNodeId(entity.urn)) },
+          },
+        );
+        for (const row of result.rows) {
+          stored.set(String(row.urn), row);
+        }
+      }
+
+      for (const entity of entities) {
+        const row = stored.get(String(entity.urn));
+        if (!row) continue;
+
+        const attributes = selectorAttributes(entity);
+        const same =
+          String(row.kind ?? "") === entity.kind &&
+          String(row.name ?? "") === entity.name &&
+          String(row.source ?? "") === entity.source &&
+          String(row.tag ?? "") === attributes.tag &&
+          String(row.environment ?? "") === attributes.environment &&
+          String(row.trust ?? "") === attributes.trust &&
+          String(row.deprecated ?? "") === attributes.deprecated &&
+          String(row.sole_publisher ?? "") === attributes.sole_publisher;
+
+        if (same) unchanged.add(entity.urn);
+      }
+    } catch {
+      // If the comparison fails, write everything. Skipping a write on the
+      // strength of a failed read is how a graph ends up quietly stale.
+      return new Set();
+    }
+
+    return unchanged;
+  }
+
+  /**
    * Store a small piece of workspace state, such as when the last sweep ran.
    *
    * Kept under its own `Meta` label so it can never appear in a traversal. The
@@ -294,18 +373,37 @@ export class GraphStore {
   ): Promise<Set<string>> {
     const label = identifier(ENTITY_LABEL);
     const relType = identifier(kind);
-    const result = await this.client.query<{ from_urn: string; to_urn: string }>(
-      `MATCH (a:${label.text})-[r:${relType.text}]->(b:${label.text})
-       RETURN a.urn AS from_urn, b.urn AS to_urn`,
-      { timeoutMs: 120_000, ...options },
-    );
-
     const pairs = new Set<string>();
-    for (const row of result.rows) {
-      if (typeof row.from_urn === "string" && typeof row.to_urn === "string") {
-        pairs.add(`${row.from_urn}|${row.to_urn}`);
+
+    // Paged, because HydraDB caps a result set at 1024 rows.
+    //
+    // Unpaged, this returned exactly 1024 edges no matter how many existed, so
+    // every edge past the first 1024 looked new on every scan and was rewritten
+    // forever. That is the write churn that degrades reads: on an identical
+    // graph the same rule check measured 976ms against a clean store and
+    // 27,616ms against a churned one — past the server's 30s limit, and
+    // therefore reported as `unknown`.
+    //
+    // A silently truncated read is precisely the failure this product exists to
+    // catch, and it was sitting in our own diffing.
+    const PAGE = 1000;
+    for (let skip = 0; ; skip += PAGE) {
+      const result = await this.client.query<{ from_urn: string; to_urn: string }>(
+        `MATCH (a:${label.text})-[r:${relType.text}]->(b:${label.text})
+         RETURN a.urn AS from_urn, b.urn AS to_urn
+         SKIP ${skip} LIMIT ${PAGE}`,
+        { timeoutMs: 120_000, ...options },
+      );
+
+      for (const row of result.rows) {
+        if (typeof row.from_urn === "string" && typeof row.to_urn === "string") {
+          pairs.add(`${row.from_urn}|${row.to_urn}`);
+        }
       }
+
+      if (result.rows.length < PAGE) break;
     }
+
     return pairs;
   }
 
@@ -347,14 +445,21 @@ export class GraphStore {
     const label = identifier(ENTITY_LABEL);
     const { onProgress, ...queryOptions } = options;
 
-    const result = await this.client.query<{ urn: string }>(
-      `MATCH (n:${label.text}) RETURN n.urn AS urn`,
-      { timeoutMs: 60_000, ...queryOptions },
-    );
-
-    const urns = result.rows
-      .map((row) => String(row.urn))
-      .filter((urn) => urn.length > 0) as EntityUrn[];
+    // Paged: an unpaged read is capped at 1024 rows, so a wipe would leave
+    // everything past the first 1024 in place while reporting success.
+    const urns: EntityUrn[] = [];
+    const PAGE = 1000;
+    for (let skip = 0; ; skip += PAGE) {
+      const result = await this.client.query<{ urn: string }>(
+        `MATCH (n:${label.text}) RETURN n.urn AS urn SKIP ${skip} LIMIT ${PAGE}`,
+        { timeoutMs: 60_000, ...queryOptions },
+      );
+      for (const row of result.rows) {
+        const urn = String(row.urn);
+        if (urn.length > 0) urns.push(urn as EntityUrn);
+      }
+      if (result.rows.length < PAGE) break;
+    }
 
     const BATCH = 40;
     for (let i = 0; i < urns.length; i += BATCH) {
