@@ -198,11 +198,24 @@ function StepBody({ id, operator }: { id: string; operator: Operator }) {
 function EnforceStep() {
   return (
     <div className="rounded-lg bg-card p-6 shadow-card">
-      <h3 className="text-[14.5px] font-semibold tracking-tight text-ink">
-        On your machine
+      <h3 className="text-[14.5px] font-semibold tracking-tight text-ink">Install it</h3>
+      {/* Not `npm install -g tavik`. Tavik is not published to npm, so that
+          command fails — and a setup instruction that does not work is the same
+          class of dishonesty as a rule that reports safe without checking. This
+          is what actually works today. */}
+      <p className="mt-2 text-[13px] leading-relaxed text-ink-soft">
+        Tavik isn&apos;t on npm yet, so it installs from the clone you already
+        have. <code className="font-mono text-ink">npm link</code> puts{" "}
+        <code className="font-mono text-ink">tavik</code> on your PATH everywhere.
+      </p>
+      <div className="mt-3 space-y-2">
+        <Command text="npm install && npm link" note="once, in the Tavik folder" />
+      </div>
+
+      <h3 className="mt-7 border-t border-line pt-6 text-[14.5px] font-semibold tracking-tight text-ink">
+        Then, in any project
       </h3>
       <div className="mt-3 space-y-2">
-        <Command text="npm install -g tavik" note="or run it straight from a clone" />
         <Command text="tavik init" note="writes tavik.config.json, checks the connection" />
         <Command text="tavik scan" note="reads your lockfile and CI workflows" />
         <Command text="tavik check" note="answers every rule you've written" />

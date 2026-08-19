@@ -147,14 +147,16 @@ export async function main(argv: readonly string[]): Promise<number> {
   const args = parse(argv);
   const { flags } = args;
 
-  if (flags.help === true || args.command === "help" || args.command === undefined) {
-    line(USAGE);
-    return args.command === undefined && flags.help !== true ? EXIT.USAGE : EXIT.OK;
-  }
-
+  // Version before help. `--version` carries no command, so the "nothing to do,
+  // show usage" branch below was swallowing it and printing the whole help text.
   if (flags.version === true || args.command === "version") {
     line("tavik 0.1.0");
     return EXIT.OK;
+  }
+
+  if (flags.help === true || args.command === "help" || args.command === undefined) {
+    line(USAGE);
+    return args.command === undefined && flags.help !== true ? EXIT.USAGE : EXIT.OK;
   }
 
   const cwd = process.cwd();

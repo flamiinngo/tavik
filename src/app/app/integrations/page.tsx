@@ -63,13 +63,19 @@ export default function IntegrationsPage() {
       name: "Command line",
       status: "connected",
       what: "The same engine and the same graph, from your terminal. `tavik scan` reads the project you're standing in; `tavik check` answers every rule and exits non-zero when one breaks.",
-      setup: "npx tavik init && npx tavik scan && npx tavik check",
+      // Not npx. Tavik is not published to npm, so npx would fail — and a setup
+      // line that does not run is the same class of dishonesty as a rule that
+      // reports safe without checking.
+      setup: "npm install && npm link    # once, in the Tavik folder",
     },
     {
       name: "GitHub Actions",
       status: "connected",
       what: "Runs the check on every pull request and fails the build when a change opens a route into production. Writes the routes it found to the run summary, so the failure explains itself. Needs a HydraDB your runner can reach.",
-      setup: "uses: tavik-security/tavik@v1",
+      // The repository you cloned Tavik from. There is no published marketplace
+      // action to point at yet, and inventing a name for one would send someone
+      // to a workflow that fails on its first run.
+      setup: "uses: <your-org>/tavik@main    # the repo you cloned",
     },
     {
       name: "Named operators",

@@ -53,17 +53,92 @@ npm run hydra:up      # starts HydraDB and waits for it
 npm run dev           # http://localhost:3000
 ```
 
-Open the app and scan something — a GitHub repository is the fastest:
-paste `prettier/prettier` and watch it map 918 packages and 353 publishers.
+The workspace starts genuinely empty. Scan something — a GitHub repository is
+fastest: paste `prettier/prettier` and watch it map 918 packages and 353
+publishers.
 
-Prefer the command line?
+---
+
+## Three ways to use it
+
+Same engine, same graph, same work log behind all three. A publisher you approve
+on the dashboard makes the CI check pass; a check that fails in CI appears in
+your work log seconds later. There is no second copy of anything.
+
+### 1. The dashboard
+
+Where a person investigates a route and decides what to do about it — approve the
+publisher, or cut the dependency. `npm run dev`.
+
+### 2. The command line
 
 ```bash
-npm run scan -- prettier/prettier      # any public repository
-npm run ingest                         # this project's own lockfile
-npm run verify                         # check the rules
-npm run demo                           # the whole loop: green → red → green
+npm install && npm link    # once, in this folder — puts `tavik` on your PATH
+
+cd ~/your-project
+tavik init                 # writes tavik.config.json, checks the connection
+tavik scan                 # reads your lockfile and CI workflows
+tavik check                # answers every rule
 ```
+
+Tavik is not published to npm yet, so `npm link` from your clone is the install.
+`npx tavik` will not work, and this README will say so until it does.
+
+### 3. In CI, on every pull request
+
+This is the one that matters — the difference between a dashboard someone visits
+and a control that holds.
+
+```yaml
+- uses: actions/checkout@v4
+- uses: <your-org>/tavik@main
+  with:
+    hydra-url: ${{ secrets.TAVIK_HYDRA_URL }}
+    hydra-token: ${{ secrets.TAVIK_HYDRA_TOKEN }}
+```
+
+A change that opens a route into production fails the build, and the run summary
+shows the exact chain, hop by hop. Exit codes are the contract:
+
+| Code | Meaning |
+| --- | --- |
+| `0` | every rule was checked, and every rule holds |
+| `1` | a rule has a way through |
+| `2` | a rule **could not be checked** |
+| `3` | Tavik could not run at all |
+
+Code `2` is deliberate and on by default. "We didn't check" is not "it's fine",
+and a build that goes green on an unanswered rule is the exact false assurance
+this product exists to prevent. `--allow-unchecked` opts out on purpose.
+
+The Action needs a HydraDB your runner can reach. There is no hosted option and
+nothing here pretends otherwise. See
+[`.github/workflows/tavik-example.yml`](.github/workflows/tavik-example.yml),
+which also explains what scanning a branch does to a shared graph.
+
+### Rules live in your repository
+
+```json
+{
+  "service": "checkout-api",
+  "environment": "production",
+  "rules": [
+    { "name": "No unapproved publishers", "from": "outside-publishers", "to": "production" },
+    { "name": "No abandoned code", "from": "abandoned-versions", "to": "production" }
+  ]
+}
+```
+
+`tavik check` applies the file before verifying, so a rule added in a pull
+request takes effect on that build. `tavik rules add` walks you through writing
+one and writes it here, so declaring a boundary is a reviewable diff rather than
+something one person clicked once.
+
+`from` and `to` come from a closed vocabulary — every option is backed by a
+property ingestion actually writes, so a rule in this file can always be
+answered. A free-form selector would let you write a rule that silently matches
+nothing and reports `unknown` forever, which reads as a broken product rather
+than an unanswerable question.
 
 ---
 
@@ -117,8 +192,8 @@ Remove HydraDB and there is no product.
 - **It makes fixes real.** A remediation deletes an edge, and the re-check runs
   the same query against the changed graph.
 
-Across three scanned projects that is **4,023 entities and 9,446 relationships**,
-with rules proven in a few seconds.
+Across three scanned projects that reached **4,023 entities and 9,446
+relationships**, with rules proven in a few seconds.
 
 ### What we learned about HydraDB
 
@@ -133,6 +208,18 @@ The ones that cost us the most time:
   degraded the store until a rule check went from 976ms to 27,616ms and timed out.
 - **Mass deletes are expensive.** Log-structured storage means churn slows every
   later read. Ingestion diffs instead of rewriting.
+- **There is no bulk delete at all.** `WITH … LIMIT` before a write is refused by
+  the mutation engine, `DELETE … LIMIT` will not parse, and deleting every node
+  in one statement exceeds the 30-second query limit. A single `DETACH DELETE`
+  measured at 1.5 seconds on a populated graph, so emptying a real workspace from
+  the interface is not viable — `npm run reset` replaces the volume instead, and
+  the interface says so rather than offering a button that appears to hang.
+- **One statement cannot set a property to two values.** Two ingestion stages
+  describing the same release — the lockfile knows it is installed, the registry
+  knows it is deprecated — get rejected as `conflicting metadata values` unless
+  they are merged first.
+- **A token is scoped to one graph.** Handy idea, ruled out: a graph per pull
+  request is not available without provisioning a token per graph.
 - Nodes need an integer `id`; `CREATE`/`MERGE` are refused without one.
 - Labels are applied with `SET n:Label`, never inside a `MERGE` pattern.
 - Query parameters exist despite the docs, but a composite parameter only works
@@ -161,6 +248,34 @@ your process, not about them.
 
 **Integrations say what they actually do.** Including the ones that do nothing
 yet. Listing an unbuilt integration tells a team they have coverage they do not.
+The same applies to setup instructions: Tavik is not on npm, so this README says
+`npm link` rather than `npx tavik`, because a command that does not run is the
+same class of dishonesty as a rule that reports safe without checking.
+
+**Every approval carries a name.** Four roles, checked on the server inside each
+action rather than by hiding buttons — a server action is a public endpoint
+whether or not anything on screen points at it. The Team screen is honest that
+this is attribution and not authentication: Tavik runs as one workspace with
+nothing to check a password against, and a login form that checks nothing is
+worse than none.
+
+---
+
+## What it costs
+
+Stated plainly, because these are the numbers a team will meet.
+
+| | |
+| --- | --- |
+| Scanning ~600 packages | about 2 minutes |
+| Checking one rule | 1–4 seconds |
+| Re-checking a watched repository that has not changed | ~260ms |
+| Reading it in full when it has | ~155 seconds |
+
+Scanning is one live registry request per package, and that dominates. Fetching
+smaller documents was tried and made it *slower* — request latency dominates, not
+bytes — so the concurrency limit was measured and raised instead. The commit
+history records the attempt and the numbers rather than quietly dropping it.
 
 ---
 
@@ -174,24 +289,41 @@ yet. Listing an unbuilt integration tells a team they have coverage they do not.
 | **Security graph** | Every route currently getting through |
 | **Timeline** | Every moment a rule broke or healed |
 | **Work log** | What Tavik has done |
-| **Scan a project** | GitHub, lockfile, or AWS |
+| **Get started** | A four-step guided setup — scan, sign, write a rule, enforce it |
+| **Watched repos** | Repositories Tavik re-reads on its own |
 | **Integrations** | What is connected, and what is not |
+| **Team** | Who is using Tavik, and what each role may do |
 
 ---
 
 ## Commands
 
+### The `tavik` CLI
+
+| Command | What it does |
+| --- | --- |
+| `tavik init` | Write `tavik.config.json`, and prove the connection works |
+| `tavik scan` | Read this project — lockfile and CI workflows — into the graph |
+| `tavik scan --repo owner/name` | Read a public GitHub repository instead |
+| `tavik check` | Answer every rule. Exits non-zero when one breaks |
+| `tavik check --json` | The same, for machines |
+| `tavik rules` | List what this workspace has declared |
+| `tavik rules add` | Declare a boundary, and write it to the config |
+| `tavik rules remove <id>` | Stop enforcing one |
+| `tavik approve <publisher>` | Put an account on the approved publisher list |
+| `tavik review <publisher>` | Put one under review instead |
+
+### Running the project
+
 | Command | What it does |
 | --- | --- |
 | `npm run dev` | Start the app |
-| `npm run scan -- owner/repo` | Scan a public GitHub repository |
-| `npm run ingest` | Scan this project's lockfile |
-| `npm run ingest -- --lockfile path/to/lock` | Scan any lockfile |
-| `npm run verify` | Check a rule from the command line |
-| `npm run demo` | The whole loop, printed: green → red → green |
-| `npm test` | 173 tests |
+| `npm run hydra:up` | Start HydraDB and wait for it |
+| `npm test` | 251 tests |
+| `npm run typecheck` | TypeScript, strict |
 | `npm run hydra:probe` | Print what HydraDB actually accepts |
 | `npm run reset` | Empty the workspace, to see the first run again |
+| `npm run demo` | The whole loop, printed: green → red → green |
 
 ---
 
@@ -201,7 +333,7 @@ yet. Listing an unbuilt integration tells a team they have coverage they do not.
 npm test
 ```
 
-173 tests across 12 files. The ones that matter most:
+251 tests across 18 files. The ones that matter most:
 
 - **Cypher injection.** npm package names are attacker-controlled, and
   `'}) DETACH DELETE n //` is a legal package name. Tested with real payloads.

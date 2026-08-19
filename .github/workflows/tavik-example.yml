@@ -45,7 +45,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Verify security boundaries
-        uses: ./ # in your repository: tavik-security/tavik@v1
+        uses: ./ # in your repository: <your-org>/tavik@main
         with:
           hydra-url: ${{ secrets.TAVIK_HYDRA_URL }}
           hydra-token: ${{ secrets.TAVIK_HYDRA_TOKEN }}
