@@ -72,6 +72,13 @@ export interface IngestReport {
   readonly relationsWritten: number;
   /** Relationships that already existed and were left untouched. */
   readonly relationsUnchanged: number;
+  /**
+   * Dependencies this project used to have and no longer does.
+   *
+   * Reported because it is the number that proves a fix worked. A team that
+   * removes a bad package wants to see Tavik notice, not just stop complaining.
+   */
+  readonly relationsRemoved: number;
   readonly packagesResolved: number;
   readonly maintainersFound: number;
   readonly untrustedMaintainers: number;
@@ -179,11 +186,41 @@ export async function ingestProject(
 
   const relationsUnchanged = relations.length - newRelations.length;
 
+  // ── 4. Forget what this project no longer depends on ──────────────────────
+  //
+  // Without this, ingestion only ever adds. A team that removes a bad
+  // dependency and re-scans is still told it is there, because the edge from
+  // the old release into their service was never taken away. The rule stays red
+  // forever, and the product's central promise — fix it, re-scan, watch it go
+  // green — quietly stops being true. Measured: dependency deleted from
+  // package.json, lockfile rebuilt, re-scan clean, and Tavik still reported the
+  // route.
+  //
+  // Scoped to edges pointing *at this service*, and nothing else. The rest of
+  // the graph is shared: `flatten supplies postcss-values-parser` is a fact
+  // about the ecosystem that stays true no matter who scans, and one project's
+  // scan has no business deleting another project's routes. What a lockfile is
+  // authoritative about is which releases supply *its own* service — so that,
+  // and only that, is reconciled.
+  const relationsRemoved = await forgetDepartedDependencies(
+    store,
+    projection.serviceUrn,
+    relations,
+    // Read separately rather than reusing the diff above, which only fetched the
+    // kinds this scan happens to produce. A project that removed its last
+    // dependency emits no SUPPLIES edges at all — so the lookup was skipped in
+    // precisely the case where there is most to forget, and the graph kept every
+    // route into a service that now depends on nothing.
+    await store.listRelationsOfKind("SUPPLIES", { signal: options.signal }),
+    options.signal,
+  );
+
   return {
     serviceUrn: projection.serviceUrn,
     entitiesWritten,
     relationsWritten,
     relationsUnchanged,
+    relationsRemoved,
     packagesResolved: maintainers.stats.packagesResolved,
     maintainersFound: maintainers.stats.maintainersFound,
     untrustedMaintainers: maintainers.stats.untrustedMaintainers,
@@ -192,4 +229,58 @@ export async function ingestProject(
     concentration: publisherConcentration(maintainers),
     elapsedMs: Date.now() - startedAt,
   };
+}
+
+/**
+ * Remove edges into this service that its lockfile no longer produces.
+ *
+ * Deliberately narrow. Deleting is the dangerous direction — a route wrongly
+ * removed is a boundary reported safe that is not, which is the worst thing this
+ * system can do — so this only touches `SUPPLIES` edges whose target is the
+ * service being scanned. Those are exactly the edges the lockfile in hand is
+ * authoritative about: it is the complete statement of what this project
+ * installs. Everything else in the graph belongs to someone else's scan or is a
+ * fact about the wider ecosystem, and is left alone.
+ *
+ * A removed transitive dependency is handled by the same rule without needing a
+ * special case: whichever release stops supplying the service loses its edge,
+ * and every route that ran through it disappears with it.
+ */
+async function forgetDepartedDependencies(
+  store: GraphStore,
+  serviceUrn: EntityUrn,
+  relations: readonly Relation[],
+  storedSupplies: ReadonlySet<string> | undefined,
+  signal: AbortSignal | undefined,
+): Promise<number> {
+  if (!storedSupplies) return 0;
+
+  // What this scan says supplies the service.
+  const current = new Set<string>();
+  for (const relation of relations) {
+    if (relation.kind === "SUPPLIES" && relation.to === serviceUrn) {
+      current.add(`${relation.from}|${relation.to}`);
+    }
+  }
+
+  const suffix = `|${serviceUrn}`;
+  const departed: string[] = [];
+  for (const key of storedSupplies) {
+    if (key.endsWith(suffix) && !current.has(key)) departed.push(key);
+  }
+
+  let removed = 0;
+  for (const key of departed) {
+    const from = key.slice(0, key.length - suffix.length) as EntityUrn;
+    try {
+      await store.deleteRelation(from, serviceUrn, "SUPPLIES", { signal });
+      removed++;
+    } catch {
+      // One failed delete must not abandon a scan that has already written
+      // everything else. The stale edge produces a route that no longer exists —
+      // a false alarm, not a false all-clear — and the next scan tries again.
+    }
+  }
+
+  return removed;
 }

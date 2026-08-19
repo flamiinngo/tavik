@@ -130,6 +130,7 @@ export async function scan(options: ScanOptions): Promise<number> {
           publishers: report.maintainersFound,
           entitiesWritten: report.entitiesWritten,
           relationsWritten: report.relationsWritten,
+          relationsRemoved: report.relationsRemoved,
           ciActions: actionCount,
           ciActionPublishers: actionPublishers,
           unpinnedActions: unpinned,
