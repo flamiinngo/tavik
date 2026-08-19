@@ -183,15 +183,42 @@ describe.runIf(env)("the GREEN -> RED -> GREEN loop, against live HydraDB", () =
   it("holds when the estate is populated but nothing matches the selectors", async () => {
     if (!reachable || !store || !client) return;
 
-    // With the fixtures removed, no entity carries this test's trust label. The
-    // graph is populated, so there is genuinely nothing that could cross and the
-    // boundary holds. This is the distinction that lets a real boundary ever
-    // report green: "checked, and nothing qualifies" is a result, not a failure.
+    // Populate explicitly rather than relying on whatever a previous run left
+    // behind. An earlier version of this test assumed ambient data and started
+    // failing the moment the workspace could be reset — it was asserting against
+    // leftovers, not a stated precondition.
+    //
+    // Both kinds exist here, but no maintainer carries this test's trust label,
+    // so there is genuinely nothing that could cross and the boundary holds.
+    // That distinction is what lets a real rule ever report green: "checked, and
+    // nothing qualifies" is a result, not a failure to check.
     await store.deleteEntities(allUrns);
+    await store.upsertEntities([
+      { ...entities[0], attributes: { trust: "itest-some-other-label" } },
+      entities[3],
+    ]);
+
     const result = await verifyBoundary(store, client, boundary);
 
     expect(result.status).toBe("verified");
     expect(result.paths).toHaveLength(0);
     expect(result.failureReason).toBeUndefined();
+
+    await store.deleteEntities(allUrns);
+  }, 30_000);
+
+  it("reports unknown when nothing of that kind exists at all", async () => {
+    if (!reachable || !store || !client) return;
+
+    // No maintainers whatsoever means ingestion never ran. Tavik has checked
+    // nothing, so it must not claim the rule holds.
+    await store.deleteEntities(allUrns);
+    const result = await verifyBoundary(store, client, {
+      ...boundary,
+      source: { ...boundary.source, kind: "CiJob" },
+    });
+
+    expect(result.status).toBe("unknown");
+    expect(result.failureReason).toMatch(/ingestion/i);
   }, 30_000);
 });
