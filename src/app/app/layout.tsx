@@ -21,7 +21,9 @@ const SECTIONS: readonly {
   items: readonly { href: string; label: string; ready: boolean }[];
 }[] = [
   {
-    heading: "State",
+    // What is true right now, and how it got that way. Where someone spends
+    // their time once Tavik is running.
+    heading: "What's true now",
     items: [
       { href: "/app", label: "Overview", ready: true },
       { href: "/app/boundaries", label: "Rules", ready: true },
@@ -29,7 +31,15 @@ const SECTIONS: readonly {
       { href: "/app/graph", label: "Security graph", ready: true },
       { href: "/app/timeline", label: "Timeline", ready: true },
       { href: "/app/work-log", label: "Work log", ready: true },
-      { href: "/app/onboarding", label: "Scan a project", ready: true },
+    ],
+  },
+  {
+    // Everything that decides what Tavik watches and how. Separated because a
+    // flat list of ten made the product read as ten features rather than one
+    // thing with a setup and a state.
+    heading: "Setup",
+    items: [
+      { href: "/app/onboarding", label: "Get started", ready: true },
       { href: "/app/watches", label: "Watched repos", ready: true },
       { href: "/app/integrations", label: "Integrations", ready: true },
       { href: "/app/team", label: "Team", ready: true },
@@ -48,15 +58,22 @@ export default async function AppLayout({ children }: LayoutProps<"/app">) {
         </div>
 
         <nav className="flex-1" aria-label="Main">
-          <ul className="space-y-1">
-            {SECTIONS.flatMap((section) => section.items).map((item) => (
-              <li key={item.href}>
-                <NavLink href={item.href} ready={item.ready}>
-                  {item.label}
-                </NavLink>
-              </li>
-            ))}
-          </ul>
+          {SECTIONS.map((section, index) => (
+            <div key={section.heading} className={index > 0 ? "mt-7" : undefined}>
+              <h2 className="px-3 pb-2 text-[11px] font-medium tracking-wide text-ink-faint uppercase">
+                {section.heading}
+              </h2>
+              <ul className="space-y-1">
+                {section.items.map((item) => (
+                  <li key={item.href}>
+                    <NavLink href={item.href} ready={item.ready}>
+                      {item.label}
+                    </NavLink>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </nav>
 
         <div className="rounded-md bg-card p-4 shadow-card">

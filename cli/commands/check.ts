@@ -114,6 +114,18 @@ export async function check(options: CheckOptions): Promise<number> {
     }
   }
 
+  // Leave a mark that a check ran from outside the dashboard.
+  //
+  // The dashboard uses this to tell someone whether Tavik is actually enforcing
+  // anything or only being looked at — a distinction it otherwise has no way to
+  // make, and the one that separates a tool a team installed from a tool a team
+  // uses. Recorded as a fact, not inferred from a guess.
+  try {
+    await store.setMeta("cli.lastCheckAt", Date.now());
+  } catch {
+    // A progress marker is never worth failing a build over.
+  }
+
   const broken = outcomes.filter((o) => o.verification.status === "violated");
   const unchecked = outcomes.filter((o) => o.verification.status === "unknown");
   const holding = outcomes.filter((o) => o.verification.status === "verified");

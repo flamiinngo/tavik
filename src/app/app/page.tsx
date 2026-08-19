@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { EmptyWorkspace } from "@/components/app/EmptyWorkspace";
+import { SetupProgress } from "@/components/app/SetupProgress";
 import { lastSweepAt } from "@/lib/engine/scheduler";
 import { DemoControl } from "@/components/demo/DemoControl";
 import { PathTrace } from "@/components/graph/PathTrace";
@@ -10,9 +11,11 @@ import { Card, CardHeader, GroupLabel, HealthBar, StatusRow } from "@/components
 import { STATUS_PRESENTATION, StatusChip } from "@/components/ui/Status";
 import { Button, EmptyState, Timestamp } from "@/components/ui/primitives";
 import { buildSubgraph, chokepoints } from "@/lib/domain/subgraph";
+import { currentOperator } from "@/lib/server/operator";
 import {
   isWorkspaceEmpty,
   loadSecurityState,
+  loadSetupProgress,
   loadWorkLog,
   quarantinedPublishers,
 } from "@/lib/server/tavik";
@@ -51,7 +54,12 @@ function describeAge(at: number): string {
  */
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-sm bg-card px-5 py-4 shadow-card">
+    // Bare, divided by a hairline rather than boxed. Four cards here made four
+    // more edges on a page that already had too many, and a number does not need
+    // a container to be legible — it needs space and something to sit against.
+    // The divider rules have to know about the wrap: at two columns the third
+    // tile starts a row and must not carry a leading edge either.
+    <div className="border-l border-line px-5 odd:border-l-0 odd:pl-0 sm:odd:border-l sm:odd:pl-5 sm:first:border-l-0 sm:first:pl-0">
       <dd className="text-[22px] font-semibold leading-none tracking-tight tabular-nums text-ink">
         {value}
       </dd>
@@ -75,11 +83,13 @@ export default async function OverviewPage() {
     );
   }
 
-  const [state, workLog, quarantined, lastSweep] = await Promise.all([
+  const operator = await currentOperator();
+  const [state, workLog, quarantined, lastSweep, setup] = await Promise.all([
     loadSecurityState(),
     loadWorkLog(5),
     quarantinedPublishers(),
     lastSweepAt(),
+    loadSetupProgress(operator.identified),
   ]);
 
   const critical = state.boundaries.find((e) => e.verification?.status === "violated");
@@ -115,6 +125,11 @@ export default async function OverviewPage() {
       </header>
 
       <main className="w-full space-y-5 px-6 pb-12 lg:px-8">
+        {/* Above everything, until it is finished. Somebody who has not wired
+            Tavik into CI has a half-installed product, and that matters more
+            than today's numbers. */}
+        <SetupProgress progress={setup} />
+
         {state.connectionError ? (
           <Card className="p-6">
             <StatusChip status="unknown" />
@@ -202,7 +217,7 @@ export default async function OverviewPage() {
                 give the eye somewhere to land between the display type and the
                 dense panels below, instead of dropping straight from 64px into
                 a graph. */}
-            <dl className="grid grid-cols-2 gap-3 pt-2 sm:grid-cols-4">
+            <dl className="grid grid-cols-2 gap-y-6 border-t border-line pt-6 sm:grid-cols-4">
               <Stat
                 label="Publishers who can reach you"
                 value={verification.sourceCount.toLocaleString()}

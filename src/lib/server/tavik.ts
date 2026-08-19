@@ -121,6 +121,97 @@ export async function findBoundary(id: string): Promise<SecurityBoundary | undef
   return rules.find((rule) => rule.id === id);
 }
 
+/**
+ * How far someone has got with setting Tavik up.
+ *
+ * Every step is derived from something that actually happened, never from a
+ * flag someone clicked past. A checklist that can be ticked without doing the
+ * thing is worse than no checklist: it tells a team they are covered when they
+ * are not, which is the same failure as reporting an unchecked rule as safe.
+ *
+ * The last step is the one that matters most and is the easiest to skip. A team
+ * that has scanned once has looked at Tavik; a team whose CI runs `tavik check`
+ * is being defended by it. Nothing else on the dashboard can tell those apart.
+ */
+export interface SetupStep {
+  readonly id: string;
+  readonly title: string;
+  readonly why: string;
+  readonly href: string;
+  readonly action: string;
+  readonly done: boolean;
+}
+
+export interface SetupProgress {
+  readonly steps: readonly SetupStep[];
+  readonly complete: boolean;
+  readonly doneCount: number;
+}
+
+export async function loadSetupProgress(operatorIdentified: boolean): Promise<SetupProgress> {
+  const { store, rules } = tavik();
+
+  // Each fact is read independently and defaults to "not done" when it cannot
+  // be read. An unreachable database must not tick boxes.
+  const scanned = await safely(async () => (await store.countEntitiesOfKind("Service")) > 0, false);
+
+  const ownRule = await safely(async () => {
+    const starterIds = new Set(STARTER_RULES.map((rule) => rule.id));
+    return (await rules.list()).some((rule) => !starterIds.has(rule.id));
+  }, false);
+
+  const enforcedInCi = await safely(
+    async () => (await store.getMeta("cli.lastCheckAt")) !== null,
+    false,
+  );
+
+  const steps: SetupStep[] = [
+    {
+      id: "scan",
+      title: "Scan a project",
+      why: "Tavik maps what you install and asks the registry who can publish it.",
+      href: "/app/onboarding",
+      action: "Scan one",
+      done: scanned,
+    },
+    {
+      id: "identify",
+      title: "Say who you are",
+      why: "Every approval gets your name on it, so the work log is worth reading later.",
+      href: "/app/team",
+      action: "Add your name",
+      done: operatorIdentified,
+    },
+    {
+      id: "rule",
+      title: "Write a rule of your own",
+      why: "The five Tavik seeds are a starting point, not your policy.",
+      href: "/app/boundaries/new",
+      action: "Write one",
+      done: ownRule,
+    },
+    {
+      id: "enforce",
+      title: "Enforce it where changes happen",
+      why: "Run `tavik check` in CI and a pull request that opens a route fails the build.",
+      href: "/app/onboarding#cli",
+      action: "Set it up",
+      done: enforcedInCi,
+    },
+  ];
+
+  const doneCount = steps.filter((step) => step.done).length;
+  return { steps, complete: doneCount === steps.length, doneCount };
+}
+
+async function safely<T>(read: () => Promise<T>, fallback: T): Promise<T> {
+  try {
+    return await read();
+  } catch {
+    return fallback;
+  }
+}
+
 export interface SecurityStateSummary {
   readonly boundaries: readonly BoundaryWithVerification[];
   readonly counts: Record<"verified" | "violated" | "investigating" | "unknown", number>;
