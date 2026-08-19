@@ -1,5 +1,6 @@
 import "server-only";
 
+import { notifyStatusChange } from "@/lib/notify/slack";
 import { loadRules, tavik } from "@/lib/server/tavik";
 import { verifyBoundary } from "./verify";
 
@@ -68,8 +69,25 @@ export async function sweep(): Promise<SweepResult> {
         // a transition — the sweep is meant to be invisible until it has
         // something to say.
         if (!previous || previous.status !== verification.status) {
-          await changeLog.recordVerification(rule, verification, previous);
+          const events = await changeLog.recordVerification(rule, verification, previous);
           changed++;
+
+          // Tell people where they already are. The product's premise is that
+          // nobody should have to watch a dashboard, which only holds if a
+          // change at 2am reaches someone. Transitions only: a message every
+          // minute saying nothing changed is how a channel gets muted, and a
+          // muted channel looks like coverage while providing none.
+          //
+          // A first evaluation is skipped. Seeding a workspace would otherwise
+          // fire one alert per rule before anyone had done anything, which
+          // teaches people to ignore the channel on day one.
+          const transition = events.find((e) => e.type === "boundary.status_changed");
+          if (previous && transition) {
+            const result = await notifyStatusChange(rule, transition);
+            if (result.error) {
+              console.warn(`[tavik] slack: ${result.error}`);
+            }
+          }
         }
       } catch {
         // One bad rule must not abort the sweep for the others.
