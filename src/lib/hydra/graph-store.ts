@@ -293,18 +293,43 @@ export class GraphStore {
   /**
    * Remove all Tavik state for the whole graph.
    *
-   * Destructive and deliberately blunt — this is environment reset, not test
-   * cleanup. Tests should delete their own fixtures with
-   * {@link deleteEntities}; wiping the label would also destroy real ingested
-   * state, and on a large graph the single statement is slow enough to time out.
+   * Destructive and deliberately blunt — environment reset, not test cleanup.
+   * Tests should delete their own fixtures with {@link deleteEntities}, since
+   * this destroys real ingested state too.
+   *
+   * Deleted in batches rather than as one statement. HydraDB enforces its own
+   * 30s query timeout, which a single `DETACH DELETE` over a real graph exceeds
+   * — the client timeout is irrelevant because the limit is server-side. Reading
+   * the ids first and removing them in chunks keeps every statement well inside
+   * it, and lets progress be reported on what is otherwise a long silent wait.
    */
-  async clear(options: QueryOptions = {}): Promise<void> {
+  async clear(
+    options: QueryOptions & { onProgress?: (done: number, total: number) => void } = {},
+  ): Promise<void> {
     const label = identifier(ENTITY_LABEL);
-    // A predicate is required; HydraDB refuses an unqualified MATCH (n).
-    await this.client.query(`MATCH (n:${label.text}) DETACH DELETE n`, {
-      timeoutMs: 120_000,
-      ...options,
-    });
+    const { onProgress, ...queryOptions } = options;
+
+    const result = await this.client.query<{ urn: string }>(
+      `MATCH (n:${label.text}) RETURN n.urn AS urn`,
+      { timeoutMs: 60_000, ...queryOptions },
+    );
+
+    const urns = result.rows
+      .map((row) => String(row.urn))
+      .filter((urn) => urn.length > 0) as EntityUrn[];
+
+    const BATCH = 40;
+    for (let i = 0; i < urns.length; i += BATCH) {
+      await Promise.all(
+        urns.slice(i, i + BATCH).map((urn) =>
+          this.client.query("MATCH (n {id: $id}) DETACH DELETE n", {
+            ...queryOptions,
+            parameters: { id: urnToNodeId(urn) },
+          }),
+        ),
+      );
+      onProgress?.(Math.min(i + BATCH, urns.length), urns.length);
+    }
   }
 
   // ── Reads ─────────────────────────────────────────────────────────────────

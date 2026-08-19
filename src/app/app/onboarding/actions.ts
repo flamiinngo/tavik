@@ -2,9 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
+
 import { parseLockfile } from "@/lib/ingest/lockfile";
 import { ingestProject } from "@/lib/ingest/pipeline";
-import { tavik } from "@/lib/server/tavik";
+import { seedStarterRules, tavik } from "@/lib/server/tavik";
 
 /**
  * Ingest a project someone brings themselves.
@@ -34,6 +37,64 @@ export interface IngestUploadResult {
 
 /** Guard against a paste or upload large enough to stall the server. */
 const MAX_LOCKFILE_BYTES = 12 * 1024 * 1024;
+
+/**
+ * Scan this repository, as a sample.
+ *
+ * A fresh workspace is genuinely empty, which is right — but someone evaluating
+ * Tavik in five minutes should not be forced to go and find a lockfile before
+ * they can see anything work. This ingests the app's own dependencies, which are
+ * real, public, and exactly as messy as anyone else's.
+ *
+ * Labelled as a sample everywhere it appears. It is not a fixture — the same
+ * pipeline, the same live registry lookups — just a project we can point at
+ * without asking for one.
+ */
+export async function ingestSampleProject(): Promise<IngestUploadResult> {
+  try {
+    const lockfilePath = resolve(process.cwd(), "package-lock.json");
+    const raw = await readFile(lockfilePath, "utf8");
+    const formData = new FormData();
+    formData.set("contents", raw);
+    formData.set("serviceName", "tavik (sample)");
+    formData.set("environment", "production");
+    return await ingestLockfile(formData);
+  } catch (error) {
+    return {
+      ok: false,
+      message:
+        error instanceof Error
+          ? `Couldn't read the sample project: ${error.message}`
+          : "Couldn't read the sample project.",
+    };
+  }
+}
+
+/**
+ * Empty the workspace.
+ *
+ * Exists so the first-run experience can actually be tried more than once —
+ * without it, "what does a new user see?" is unanswerable after the first scan.
+ */
+export async function resetWorkspace(): Promise<{ ok: boolean; message: string }> {
+  try {
+    const { store, rules } = tavik();
+    for (const rule of await rules.list()) {
+      await rules.remove(rule.id);
+    }
+    await store.clear();
+
+    revalidatePath("/");
+    revalidatePath("/app");
+    revalidatePath("/app/boundaries");
+    return { ok: true, message: "Workspace cleared. Tavik has nothing to watch." };
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : "Couldn't clear the workspace.",
+    };
+  }
+}
 
 export async function ingestLockfile(
   formData: FormData,
@@ -111,6 +172,12 @@ export async function ingestLockfile(
       lockfilePath: file instanceof File ? file.name : "pasted",
     });
 
+    // Rules arrive with the first scan, not on the first page view. A workspace
+    // that has something to protect should have something checking it; one that
+    // doesn't should be empty.
+    await seedStarterRules();
+
+    revalidatePath("/");
     revalidatePath("/app");
     revalidatePath("/app/boundaries");
 

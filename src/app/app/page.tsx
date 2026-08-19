@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { EmptyWorkspace } from "@/components/app/EmptyWorkspace";
 import { DemoControl } from "@/components/demo/DemoControl";
 import { PathTrace } from "@/components/graph/PathTrace";
 import { SecurityGraph } from "@/components/graph/SecurityGraph";
@@ -8,7 +9,12 @@ import { Card, CardHeader, GroupLabel, HealthBar, StatusRow } from "@/components
 import { STATUS_PRESENTATION, StatusChip } from "@/components/ui/Status";
 import { Button, EmptyState, Timestamp } from "@/components/ui/primitives";
 import { buildSubgraph, chokepoints } from "@/lib/domain/subgraph";
-import { loadSecurityState, loadWorkLog, quarantinedPublishers } from "@/lib/server/tavik";
+import {
+  isWorkspaceEmpty,
+  loadSecurityState,
+  loadWorkLog,
+  quarantinedPublishers,
+} from "@/lib/server/tavik";
 
 export const metadata = { title: "Overview" };
 export const dynamic = "force-dynamic";
@@ -36,6 +42,20 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 export default async function OverviewPage() {
+  // A workspace with nothing scanned gets the empty state, not empty panels.
+  if (await isWorkspaceEmpty()) {
+    return (
+      <>
+        <header className="flex h-16 shrink-0 items-center px-6 lg:px-8">
+          <h1 className="text-[15px] font-semibold tracking-tight text-ink">Overview</h1>
+        </header>
+        <main className="w-full">
+          <EmptyWorkspace />
+        </main>
+      </>
+    );
+  }
+
   const [state, workLog, quarantined] = await Promise.all([
     loadSecurityState(),
     loadWorkLog(5),

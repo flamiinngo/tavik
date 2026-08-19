@@ -49,23 +49,46 @@ export function tavik() {
 }
 
 /**
+ * Whether anything has been scanned yet.
+ *
+ * A workspace with no services has nothing to protect, so every screen should be
+ * routing the user into onboarding rather than showing empty panels. Keyed on
+ * services rather than total entities because that is what a person actually
+ * added — the packages and publishers are consequences of it.
+ */
+export async function isWorkspaceEmpty(): Promise<boolean> {
+  try {
+    return (await tavik().store.countEntitiesOfKind("Service")) === 0;
+  } catch {
+    // If the database cannot be reached, the workspace is not empty — it is
+    // unknown, and the caller will surface a connection error rather than an
+    // invitation to start.
+    return false;
+  }
+}
+
+/**
  * The rules this workspace has declared.
  *
- * Read from the database, so they are whatever the user actually wrote. The set
- * below is used only to seed a brand-new workspace: without it the first visit
- * would show an empty product and nothing to react to, which teaches nobody
- * anything. Once seeded they are ordinary saved rules — editable and deletable
- * like any other.
+ * Read from the database, so they are whatever the user actually wrote.
+ *
+ * Starter rules are seeded on the first *scan*, not on the first page view. A
+ * fresh install should be genuinely empty: someone landing on a dashboard
+ * already full of rules and numbers they did not create cannot tell the product
+ * from a screenshot, and reasonably assumes the whole thing is staged. Seeding
+ * at scan time means the first numbers they see are their own.
  */
 export async function loadRules(): Promise<readonly SecurityBoundary[]> {
-  const { rules } = tavik();
-  const saved = await rules.list();
-  if (saved.length > 0) return saved;
+  return tavik().rules.list();
+}
 
+/** Seed the starter rules. Called once, after a workspace's first scan. */
+export async function seedStarterRules(): Promise<void> {
+  const { rules } = tavik();
+  if ((await rules.list()).length > 0) return;
   for (const rule of STARTER_RULES) {
     await rules.save(rule);
   }
-  return STARTER_RULES;
 }
 
 /**
@@ -216,7 +239,7 @@ export async function loadSecurityState(): Promise<SecurityStateSummary> {
 
   const boundaries: BoundaryWithVerification[] = [];
 
-  const rules = connectionError ? STARTER_RULES : await loadRules();
+  const rules = connectionError ? [] : await loadRules();
 
   for (const boundary of rules) {
     if (connectionError) {
