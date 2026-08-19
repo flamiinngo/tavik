@@ -22,6 +22,7 @@ const SECTIONS: readonly {
     items: [
       { href: "/app", label: "Overview", ready: true },
       { href: "/app/boundaries", label: "Rules", ready: true },
+      { href: "/app/publishers", label: "Publishers", ready: true },
       { href: "/app/graph", label: "Security graph", ready: true },
       { href: "/app/timeline", label: "Timeline", ready: true },
       { href: "/app/work-log", label: "Work log", ready: true },

@@ -289,6 +289,67 @@ export class GraphStore {
   }
 
   /**
+   * Every publisher, with how many packages each can publish to.
+   *
+   * Reach is what makes a publisher worth looking at: an account that can push
+   * to one package is a small decision, one that can push to a hundred is a
+   * single point of failure. Sorting by it puts the decisions that matter at the
+   * top, which is the whole value of the screen.
+   *
+   * Counted in application code rather than with an aggregate: HydraDB supports
+   * only `count(*)` over a whole match, not a per-group count, so there is no
+   * way to ask it for this directly.
+   */
+  async listPublishers(
+    options: QueryOptions = {},
+  ): Promise<
+    { urn: string; name: string; trust: string; packages: number }[]
+  > {
+    const label = identifier(ENTITY_LABEL);
+
+    // Publishers, paged past the 1024-row cap.
+    const publishers = new Map<string, { name: string; trust: string; packages: number }>();
+    const PAGE = 1000;
+
+    for (let skip = 0; ; skip += PAGE) {
+      const result = await this.client.query<{
+        urn: string;
+        name: string;
+        trust: string;
+      }>(
+        `MATCH (n:${label.text})
+         WHERE n.kind = 'Maintainer'
+         RETURN n.urn AS urn, n.name AS name, n.trust AS trust
+         SKIP ${skip} LIMIT ${PAGE}`,
+        { timeoutMs: 60_000, ...options },
+      );
+
+      for (const row of result.rows) {
+        const urn = String(row.urn);
+        if (urn.length === 0) continue;
+        publishers.set(urn, {
+          name: String(row.name ?? ""),
+          trust: String(row.trust ?? "untrusted"),
+          packages: 0,
+        });
+      }
+
+      if (result.rows.length < PAGE) break;
+    }
+
+    // Their publish rights, also paged.
+    for (const pair of await this.listRelationsOfKind("MAINTAINS", options)) {
+      const [from] = pair.split("|");
+      const publisher = publishers.get(from);
+      if (publisher) publisher.packages++;
+    }
+
+    return [...publishers.entries()]
+      .map(([urn, value]) => ({ urn, ...value }))
+      .sort((a, b) => b.packages - a.packages || a.name.localeCompare(b.name));
+  }
+
+  /**
    * Store a small piece of workspace state, such as when the last sweep ran.
    *
    * Kept under its own `Meta` label so it can never appear in a traversal. The
