@@ -22,7 +22,8 @@
     "verify": "tsx scripts/verify.mts",
     "demo": "tsx scripts/demo.mts",
     "reset": "docker compose down && node scripts/wipe-data.mjs && npm run hydra:up",
-    "scan": "tsx scripts/scan-repo.mts"
+    "scan": "tsx scripts/scan-repo.mts",
+    "tavik": "node ./bin/tavik.mjs"
   },
   "dependencies": {
     "d3-force": "^3.0.0",
@@ -50,5 +51,8 @@
     "tsx": "^4.23.12",
     "typescript": "^5",
     "vitest": "^3.2.4"
+  },
+  "bin": {
+    "tavik": "./bin/tavik.mjs"
   }
 }

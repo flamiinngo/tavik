@@ -27,6 +27,7 @@
 
 import type {
   Entity,
+  EntitySource,
   EntityUrn,
   Relation,
   RelationKind,
@@ -78,10 +79,25 @@ export class GraphStore {
    * duplicating — which matters because ingestion is resumable.
    */
   async upsertEntities(
-    entities: readonly Entity[],
+    incoming: readonly Entity[],
     options: QueryOptions = {},
   ): Promise<number> {
-    if (entities.length === 0) return 0;
+    if (incoming.length === 0) return 0;
+
+    // Combine repeats of the same thing before anything else touches them.
+    //
+    // Two ingestion stages routinely describe one entity: the lockfile knows
+    // that `flatten@1.0.3` is installed, the registry knows it is deprecated.
+    // Both emit a Release with the same URN carrying different facts, and
+    // HydraDB rejects the whole batch — `conflicting metadata values for vertex
+    // ... property deprecated` — because one `UNWIND ... MERGE ... SET` cannot
+    // set one property to two values.
+    //
+    // Dropping either copy would be worse than the error. `deprecated` is
+    // precisely what the "abandoned code" rule matches on, so losing the
+    // registry's copy turns a rule that should be red into a quiet green. They
+    // are merged instead, which loses nothing.
+    const entities = mergeByUrn(incoming);
 
     // Fail loudly before writing: a collision would merge two unrelated
     // entities and fabricate paths through the merged node.
@@ -667,6 +683,83 @@ export class GraphStore {
     );
     return Number(result.rows[0]?.total ?? 0);
   }
+}
+
+/**
+ * Combine entities that describe the same thing.
+ *
+ * Ingestion runs in stages that each know part of the truth. A lockfile knows
+ * `flatten@1.0.3` is installed and what its integrity hash is; the npm registry
+ * knows the same release is deprecated. Both emit a Release with the same URN,
+ * and both are right.
+ *
+ * The merge is additive, and deliberately so. Taking the last copy wholesale
+ * would drop the lockfile's integrity hash; taking the first would drop
+ * `deprecated`, which is the exact property the "abandoned code" rule matches
+ * on — so a package the registry has marked abandoned would sail past the rule
+ * meant to catch it. A silent false green is the worst outcome this system can
+ * produce, so nothing is discarded: later stages fill in facts, and only
+ * genuinely conflicting values are overwritten.
+ *
+ * Order carries meaning. Callers pass stages in the order they ran, so a later
+ * stage's value wins a real conflict — which is right, because the registry is
+ * a live source and the lockfile is a snapshot.
+ */
+function mergeByUrn(entities: readonly Entity[]): Entity[] {
+  // The overwhelmingly common case is no duplicates at all. Checking first
+  // keeps a 4,000-entity scan from rebuilding every object for nothing.
+  const seen = new Set<string>();
+  let duplicated = false;
+  for (const entity of entities) {
+    if (seen.has(entity.urn)) {
+      duplicated = true;
+      break;
+    }
+    seen.add(entity.urn);
+  }
+  if (!duplicated) return [...entities];
+
+  const merged = new Map<EntityUrn, Entity>();
+
+  for (const entity of entities) {
+    const existing = merged.get(entity.urn);
+    if (!existing) {
+      merged.set(entity.urn, entity);
+      continue;
+    }
+
+    merged.set(entity.urn, {
+      ...existing,
+      ...entity,
+      // Provenance, resolved so that the one guarantee that must never break
+      // cannot break: demo data is never relabelled as live. If any stage that
+      // described this entity was the labelled demo environment, the merged
+      // entity stays demo. Otherwise the later stage wins, being the more
+      // recently confirmed of the two.
+      source: mergeSource(existing.source, entity.source),
+      // Spreading the entities would let a later copy with no attributes at all
+      // erase an earlier copy's attributes wholesale.
+      attributes: { ...existing.attributes, ...entity.attributes },
+      // A missing displayName must not blank out one that was set.
+      displayName: entity.displayName ?? existing.displayName,
+    });
+  }
+
+  return [...merged.values()];
+}
+
+/**
+ * Which provenance survives when two stages describe one entity.
+ *
+ * Only one rule here is non-negotiable: an entity the demo environment touched
+ * stays labelled demo. Tavik must never present demo data as though it were live
+ * infrastructure, and merging is exactly where that could happen silently — a
+ * demo fixture combined with a real registry lookup would otherwise come out
+ * looking entirely real.
+ */
+function mergeSource(existing: EntitySource, incoming: EntitySource): EntitySource {
+  if (existing === "demo" || incoming === "demo") return "demo";
+  return incoming;
 }
 
 /**
