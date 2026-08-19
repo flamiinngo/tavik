@@ -45,7 +45,14 @@ interface RuleRow {
 export class RuleStore {
   constructor(private readonly client: HydraClient) {}
 
-  /** Save a rule. Re-saving the same id updates it in place. */
+  /**
+   * Save a rule. Re-saving the same id updates it in place.
+   *
+   * Seeding overwrites, deliberately. A rule renamed in the starter set would
+   * otherwise keep its old name forever in every workspace that had already
+   * seeded — the timeline saying "Production Isolation" while the rules list
+   * says "Outside publishers", which reads as two different rules.
+   */
   async save(boundary: SecurityBoundary, options: QueryOptions = {}): Promise<void> {
     const label = identifier(RULE_LABEL);
 

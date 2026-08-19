@@ -22,6 +22,8 @@ const SECTIONS: readonly {
     items: [
       { href: "/app", label: "Overview", ready: true },
       { href: "/app/boundaries", label: "Rules", ready: true },
+      { href: "/app/graph", label: "Security graph", ready: true },
+      { href: "/app/timeline", label: "Timeline", ready: true },
       { href: "/app/work-log", label: "Work log", ready: true },
       { href: "/app/onboarding", label: "Scan a project", ready: true },
     ],
@@ -36,14 +38,7 @@ const SECTIONS: readonly {
  * unfinished demo — the eye counted the disabled items, not the live ones —
  * while still being no more honest than naming them once.
  */
-const PLANNED = [
-  "Security graph",
-  "Timeline",
-  "Remediations",
-  "Environments",
-  "Integrations",
-  "Team",
-];
+const PLANNED = ["Slack alerts", "Scheduled repo sync", "Team accounts"];
 
 export default function AppLayout({ children }: LayoutProps<"/app">) {
   return (

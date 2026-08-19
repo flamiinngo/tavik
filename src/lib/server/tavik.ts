@@ -86,9 +86,21 @@ export async function loadRules(): Promise<readonly SecurityBoundary[]> {
 /** Seed the starter rules. Called once, after a workspace's first scan. */
 export async function seedStarterRules(): Promise<void> {
   const { rules } = tavik();
-  if ((await rules.list()).length > 0) return;
+  const saved = await rules.list();
+  const savedIds = new Set(saved.map((rule) => rule.id));
+
   for (const rule of STARTER_RULES) {
-    await rules.save(rule);
+    // Re-save a starter rule whose name or wording has changed since it was
+    // seeded. Without this a workspace keeps the original text forever, so the
+    // timeline and the rules list disagree about what a rule is called.
+    const existing = saved.find((candidate) => candidate.id === rule.id);
+    const stale =
+      existing &&
+      (existing.name !== rule.name || existing.statement !== rule.statement);
+
+    if (!savedIds.has(rule.id) || stale) {
+      await rules.save(rule);
+    }
   }
 }
 
