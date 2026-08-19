@@ -73,6 +73,34 @@ export const ENTITY_KINDS = [
 export type EntityKind = (typeof ENTITY_KINDS)[number];
 
 /**
+ * What each kind is called in a sentence, and where it comes from.
+ *
+ * Exists because of one screen. A rule whose subject has never been ingested
+ * reports `unknown`, and the reason string reaches the person verbatim — so
+ * `"Tavik has no cijob entities at all"` hands them an internal type name and no
+ * idea what to do about it. That reads as a broken product rather than a
+ * deliberate refusal to guess, which is the opposite of the point.
+ *
+ * `feed` names the thing they would actually go and do.
+ */
+export const KIND_DESCRIPTIONS: Record<
+  EntityKind,
+  { readonly plural: string; readonly feed: string }
+> = {
+  Package: { plural: "packages", feed: "Scan a project or a GitHub repository" },
+  Release: { plural: "package versions", feed: "Scan a project or a GitHub repository" },
+  Maintainer: { plural: "publisher accounts", feed: "Scan a project or a GitHub repository" },
+  Repository: { plural: "source repositories", feed: "Scan a GitHub repository" },
+  Service: { plural: "services", feed: "Scan a project or a GitHub repository" },
+  Environment: { plural: "environments", feed: "Scan a project or a GitHub repository" },
+  Action: { plural: "GitHub Actions", feed: "Scan a GitHub repository that has CI workflows" },
+  Workflow: { plural: "CI workflows", feed: "Scan a GitHub repository that has CI workflows" },
+  CiJob: { plural: "CI identities", feed: "Upload an AWS IAM export" },
+  Role: { plural: "IAM roles", feed: "Upload an AWS IAM export" },
+  Datastore: { plural: "data stores", feed: "Upload an AWS IAM export" },
+};
+
+/**
  * Relationship types.
  *
  * Every one is directed, and the direction is **the direction influence travels**

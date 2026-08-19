@@ -169,7 +169,14 @@ describe("verifyBoundary", () => {
     const result = await verifyBoundary(store, client, boundary);
 
     expect(result.status).toBe("unknown");
-    expect(result.failureReason).toMatch(/ingestion/i);
+
+    // The reason reaches the person verbatim on the dashboard, so it is checked
+    // for what it has to accomplish rather than for particular words: name the
+    // thing that is missing, and say what to do about it. Asserting on wording
+    // would fail every time the sentence is improved, which teaches whoever hits
+    // it to loosen the assertion rather than to keep the message useful.
+    expect(result.failureReason).toMatch(/publisher accounts/i);
+    expect(result.failureReason).toMatch(/scan a project/i);
   });
 
   it("reports verified when the kind is populated but nothing matches", async () => {

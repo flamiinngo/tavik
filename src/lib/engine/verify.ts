@@ -25,7 +25,7 @@ import type {
   ReachabilityPath,
   RelationKind,
 } from "@/lib/domain/entities";
-import { isEntityKind, isRelationKind } from "@/lib/domain/entities";
+import { isEntityKind, isRelationKind, KIND_DESCRIPTIONS } from "@/lib/domain/entities";
 import type { HydraClient, HydraNode, HydraPath, QueryOptions } from "@/lib/hydra/client";
 import { HydraError } from "@/lib/hydra/errors";
 import type { GraphStore } from "@/lib/hydra/graph-store";
@@ -117,9 +117,17 @@ export async function verifyBoundary(
     }
 
     if (population === 0) {
+      // Phrased as a refusal rather than a fault, because that is what it is.
+      // Tavik could report this rule as safe — there is nothing to find, after
+      // all — and it would look better on the dashboard. It says `unknown`
+      // instead, because "we never looked" and "we looked and it's clean" are
+      // different facts, and treating them the same is the worst thing a
+      // security tool can do.
+      const kind = KIND_DESCRIPTIONS[emptySide.kind];
       return unknown(
-        `Tavik has no ${emptySide.kind.toLowerCase()} entities at all, so it cannot check ` +
-          `this boundary. This usually means ingestion has not run for this environment.`,
+        `Tavik won't guess. It has no ${kind.plural} to look at yet, so it can't ` +
+          `say whether this rule holds — and reporting "safe" on something it ` +
+          `never checked would be a lie. ${kind.feed} and this rule starts answering.`,
         sourceUrns.length,
         targetUrns.length,
       );

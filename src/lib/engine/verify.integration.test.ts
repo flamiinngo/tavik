@@ -219,6 +219,9 @@ describe.runIf(env)("the GREEN -> RED -> GREEN loop, against live HydraDB", () =
     });
 
     expect(result.status).toBe("unknown");
-    expect(result.failureReason).toMatch(/ingestion/i);
+
+    // Names what is missing and what to do — see the note in verify.test.ts.
+    expect(result.failureReason).toMatch(/CI identities/i);
+    expect(result.failureReason).toMatch(/IAM export/i);
   }, 30_000);
 });
