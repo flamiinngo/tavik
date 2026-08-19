@@ -8,6 +8,7 @@ import { proposeRemediations } from "@/lib/engine/remediation";
 import { verifyBoundary } from "@/lib/engine/verify";
 import type { RelationKind } from "@/lib/domain/entities";
 import { isRelationKind, type EntityUrn } from "@/lib/domain/entities";
+import { requirePermission } from "@/lib/server/operator";
 import { findBoundary, tavik } from "@/lib/server/tavik";
 
 /**
@@ -34,15 +35,8 @@ export interface RemediationResult {
   readonly message: string;
 }
 
-export async function applyRemediation(
-  boundaryId: string,
-  from: string,
-  to: string,
-  relation: string,
-): Promise<RemediationResult> {
-  const boundary = await findBoundary(boundaryId);
-
-  const failed = (message: string): RemediationResult => ({
+function failedWith(message: string): RemediationResult {
+  return {
     ok: false,
     statusBefore: "unknown",
     statusAfter: "unknown",
@@ -50,15 +44,34 @@ export async function applyRemediation(
     routesAfter: 0,
     elapsedMs: 0,
     message,
-  });
+  };
+}
 
-  if (!boundary) return failed(`No boundary called ${boundaryId}.`);
+export async function applyRemediation(
+  boundaryId: string,
+  from: string,
+  to: string,
+  relation: string,
+): Promise<RemediationResult> {
+  // Checked in the action, not the interface. A server action is a public
+  // endpoint whether or not a button points at it, so hiding the button is a
+  // courtesy and this is the control.
+  let operator;
+  try {
+    operator = await requirePermission("remediate");
+  } catch (error) {
+    return failedWith(error instanceof Error ? error.message : "Not allowed.");
+  }
+
+  const boundary = await findBoundary(boundaryId);
+
+  if (!boundary) return failedWith(`No boundary called ${boundaryId}.`);
 
   // The relationship type comes in over the wire, so it is checked against the
   // model rather than trusted. An unrecognised type would otherwise be
   // interpolated into a Cypher statement as a label.
   if (!isRelationKind(relation)) {
-    return failed(`${relation} is not a relationship Tavik knows about.`);
+    return failedWith(`${relation} is not a relationship Tavik knows about.`);
   }
 
   const { client, store, changeLog } = tavik();
@@ -80,7 +93,7 @@ export async function applyRemediation(
     );
 
     if (!permitted) {
-      return failed(
+      return failedWith(
         "That change is not one of Tavik's current proposals for this boundary. " +
           "Re-check the boundary and try again.",
       );
@@ -93,7 +106,17 @@ export async function applyRemediation(
     const after = await verifyBoundary(store, client, boundary);
 
     // 4. Record what happened and what it achieved.
-    await recordOutcome(changeLog, boundaryId, boundary.name, from, to, relation, before, after);
+    await recordOutcome(
+      changeLog,
+      boundaryId,
+      boundary.name,
+      from,
+      to,
+      relation,
+      before,
+      after,
+      operator.name,
+    );
 
     revalidatePath(`/app/boundaries/${boundaryId}`);
     revalidatePath("/app");
@@ -111,7 +134,7 @@ export async function applyRemediation(
           : `${before.paths.length - after.paths.length} route(s) removed. ${after.paths.length} still remain.`,
     };
   } catch (error) {
-    return failed(
+    return failedWith(
       error instanceof Error ? error.message : "The remediation could not be applied.",
     );
   }
@@ -126,6 +149,7 @@ async function recordOutcome(
   relation: string,
   before: Awaited<ReturnType<typeof verifyBoundary>>,
   after: Awaited<ReturnType<typeof verifyBoundary>>,
+  operatorName: string,
 ): Promise<void> {
   // History is secondary to the outcome: a failure to write the audit entry
   // must not make a successful, already-applied remediation look like it failed.
@@ -134,7 +158,8 @@ async function recordOutcome(
       event("remediation.applied", Date.now(), {
         // A human pressed the button. The audit trail has to be able to tell
         // that apart from something Tavik did on its own.
-        actor: { kind: "user", id: "local", name: "Local operator" },
+        // Names the person. "Someone approved this" is not an audit trail.
+        actor: { kind: "user", id: operatorName, name: operatorName },
         summary: `Applied remediation to ${boundaryName}: removed ${relation} from ${shortName(from)} to ${shortName(to)}.`,
         boundaryId,
         detail: {

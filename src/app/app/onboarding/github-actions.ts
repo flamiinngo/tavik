@@ -12,6 +12,7 @@ import {
 import { parseLockfile } from "@/lib/ingest/lockfile";
 import { ingestProject } from "@/lib/ingest/pipeline";
 import { projectWorkflows } from "@/lib/ingest/workflows";
+import { gate } from "@/lib/server/operator";
 import { seedStarterRules, tavik } from "@/lib/server/tavik";
 
 /**
@@ -44,6 +45,9 @@ export interface ScanRepoResult {
 }
 
 export async function scanRepository(formData: FormData): Promise<ScanRepoResult> {
+  const allowed = await gate("scan");
+  if (!allowed.allowed) return { ok: false, message: allowed.reason };
+
   const input = String(formData.get("repo") ?? "");
   const ref = parseRepoInput(input);
 

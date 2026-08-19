@@ -31,7 +31,17 @@ export type ChangeEventType =
   /** A human approved a remediation and it was applied. */
   | "remediation.applied"
   /** A remediation was reviewed and rejected. */
-  | "remediation.rejected";
+  | "remediation.rejected"
+  /**
+   * Someone changed who this workspace trusts.
+   *
+   * Its own kind rather than a remediation, because it is a different act. A
+   * remediation removes a route; this decides a route was acceptable all along.
+   * Both can turn a rule green, and an audit trail that cannot tell "we cut the
+   * dependency" from "we decided to accept it" is missing the more consequential
+   * of the two.
+   */
+  | "trust.changed";
 
 /**
  * Who caused an entry.
@@ -63,7 +73,8 @@ export type ChangeDetail =
   | IngestionDetail
   | VerificationDetail
   | StatusChangeDetail
-  | RemediationDetail;
+  | RemediationDetail
+  | TrustChangeDetail;
 
 export interface IngestionDetail {
   readonly kind: "ingestion";
@@ -118,6 +129,14 @@ export interface RemediationDetail {
   readonly relationKind: string;
   /** Entities that lose reachability if this is applied. */
   readonly impactedUrns: readonly string[];
+}
+
+export interface TrustChangeDetail {
+  readonly kind: "trust_change";
+  /** The account whose standing changed. Never a judgement about the person. */
+  readonly publisher: string;
+  readonly from: string;
+  readonly to: string;
 }
 
 /** A path reduced to a comparable, storable form. */

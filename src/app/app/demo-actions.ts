@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { entityUrn, type EntityUrn } from "@/lib/domain/entities";
 import { event } from "@/lib/engine/change-log";
 import { verifyBoundary } from "@/lib/engine/verify";
+import { gate } from "@/lib/server/operator";
 import { findBoundary, tavik } from "@/lib/server/tavik";
 
 /**
@@ -34,6 +35,11 @@ export async function setPublisherTrust(
   publisherName: string,
   trust: "quarantined" | "untrusted",
 ): Promise<DemoResult> {
+  const allowed = await gate("manageTrust");
+  if (!allowed.allowed) {
+    return { ok: false, message: allowed.reason, routes: 0, status: "unknown" };
+  }
+
   const { client, store, changeLog } = tavik();
   const urn = entityUrn("Maintainer", publisherName) as EntityUrn;
 
@@ -59,13 +65,28 @@ export async function setPublisherTrust(
 
     try {
       await changeLog.append([
-        event("remediation.applied", Date.now(), {
-          actor: { kind: "user", id: "local", name: "Local operator" },
+        // A trust decision, not a remediation. Nothing was removed from the
+        // graph — someone changed this workspace's policy about an account.
+        event("trust.changed", Date.now(), {
+          actor: {
+            kind: "user",
+            id: allowed.operator.name,
+            name: allowed.operator.name,
+          },
           summary:
             trust === "quarantined"
               ? `${publisherName} was placed under review. Their code is quarantined until the review completes.`
               : `Review of ${publisherName} completed. The quarantine was lifted.`,
           boundaryId: "blocked-publishers",
+          detail: {
+            kind: "trust_change",
+            publisher: publisherName,
+            from: String(
+              (existing.properties as Record<string, unknown> | undefined)?.trust ??
+                "untrusted",
+            ),
+            to: trust,
+          },
         }),
       ]);
       if (boundary && verification) {

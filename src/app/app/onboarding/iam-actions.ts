@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { IamParseError, projectIamExport } from "@/lib/ingest/iam";
+import { gate } from "@/lib/server/operator";
 import { seedStarterRules, tavik } from "@/lib/server/tavik";
 
 /**
@@ -28,6 +29,9 @@ export interface IamUploadResult {
 const MAX_BYTES = 25 * 1024 * 1024;
 
 export async function ingestIamExport(formData: FormData): Promise<IamUploadResult> {
+  const allowed = await gate("scan");
+  if (!allowed.allowed) return { ok: false, message: allowed.reason };
+
   const file = formData.get("iam");
   const pasted = formData.get("contents");
   const environment = String(formData.get("environment") ?? "production").trim();

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { syncRepo } from "@/lib/engine/repo-sync";
 import { fetchLatestSha, fetchLockfile, GitHubError, parseRepoInput } from "@/lib/ingest/github";
+import { gate } from "@/lib/server/operator";
 import { tavik } from "@/lib/server/tavik";
 
 /**
@@ -23,6 +24,9 @@ export interface WatchResult {
 }
 
 export async function addWatch(formData: FormData): Promise<WatchResult> {
+  const allowed = await gate("scan");
+  if (!allowed.allowed) return { ok: false, message: allowed.reason };
+
   const input = String(formData.get("repo") ?? "");
   const ref = parseRepoInput(input);
 
@@ -85,6 +89,9 @@ export async function addWatch(formData: FormData): Promise<WatchResult> {
 }
 
 export async function removeWatch(owner: string, repo: string): Promise<WatchResult> {
+  const allowed = await gate("scan");
+  if (!allowed.allowed) return { ok: false, message: allowed.reason };
+
   try {
     await tavik().watches.unwatch(owner, repo);
     revalidatePath("/app/watches");
@@ -99,6 +106,9 @@ export async function removeWatch(owner: string, repo: string): Promise<WatchRes
 
 /** Re-read one repository now, rather than waiting for the next cycle. */
 export async function syncNow(owner: string, repo: string): Promise<WatchResult> {
+  const allowed = await gate("scan");
+  if (!allowed.allowed) return { ok: false, message: allowed.reason };
+
   try {
     const watched = (await tavik().watches.list()).find(
       (candidate) => candidate.owner === owner && candidate.repo === repo,

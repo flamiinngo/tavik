@@ -7,6 +7,7 @@ import { resolve } from "node:path";
 
 import { parseLockfile } from "@/lib/ingest/lockfile";
 import { ingestProject } from "@/lib/ingest/pipeline";
+import { gate } from "@/lib/server/operator";
 import { seedStarterRules, tavik } from "@/lib/server/tavik";
 
 /**
@@ -51,6 +52,9 @@ const MAX_LOCKFILE_BYTES = 12 * 1024 * 1024;
  * without asking for one.
  */
 export async function ingestSampleProject(): Promise<IngestUploadResult> {
+  const allowed = await gate("scan");
+  if (!allowed.allowed) return { ok: false, message: allowed.reason };
+
   try {
     const lockfilePath = resolve(process.cwd(), "package-lock.json");
     const raw = await readFile(lockfilePath, "utf8");
@@ -77,6 +81,9 @@ export async function ingestSampleProject(): Promise<IngestUploadResult> {
  * without it, "what does a new user see?" is unanswerable after the first scan.
  */
 export async function resetWorkspace(): Promise<{ ok: boolean; message: string }> {
+  const allowed = await gate("manageWorkspace");
+  if (!allowed.allowed) return { ok: false, message: allowed.reason };
+
   try {
     const { store, rules } = tavik();
     for (const rule of await rules.list()) {
@@ -99,6 +106,9 @@ export async function resetWorkspace(): Promise<{ ok: boolean; message: string }
 export async function ingestLockfile(
   formData: FormData,
 ): Promise<IngestUploadResult> {
+  const allowed = await gate("scan");
+  if (!allowed.allowed) return { ok: false, message: allowed.reason };
+
   const file = formData.get("lockfile");
   const pasted = formData.get("contents");
   const serviceName = String(formData.get("serviceName") ?? "").trim();

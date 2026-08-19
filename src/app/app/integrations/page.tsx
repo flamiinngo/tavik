@@ -60,9 +60,9 @@ export default function IntegrationsPage() {
       what: "Re-reads watched repositories every fifteen minutes, and only does the expensive work when a lockfile has actually moved. Rules are re-checked every minute against whatever it finds.",
     },
     {
-      name: "Team accounts",
-      status: "planned",
-      what: "Several people in one workspace, with a record of who approved what. Tavik runs as a single local workspace today.",
+      name: "Named operators",
+      status: "connected",
+      what: "Every approval is filed under a named person, and roles are enforced on the server for every action. Attribution, not authentication — Tavik runs as one workspace with nothing to check a password against, and the Team screen says so.",
     },
   ];
 

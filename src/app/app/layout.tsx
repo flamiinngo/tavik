@@ -1,5 +1,7 @@
 import { Logo } from "@/components/brand/Logo";
 import { NavLink } from "@/components/app/NavLink";
+import { OperatorBadge } from "@/components/app/OperatorBadge";
+import { currentOperator } from "@/lib/server/operator";
 
 /**
  * The application shell.
@@ -8,9 +10,10 @@ import { NavLink } from "@/components/app/NavLink";
  * feature name, because that is how someone actually arrives: they want to know
  * what is wrong, or what changed, or what Tavik has been doing.
  *
- * Sections not yet built are shown but marked, rather than hidden. A nav that
- * silently omits half the product makes it impossible to tell scope from
- * progress — and quietly hiding them would misrepresent what is finished.
+ * Every item here is built and works. `ready` stays on each entry rather than
+ * being deleted now that they are all true: a nav that silently omits an
+ * unfinished screen makes it impossible to tell scope from progress, and the
+ * next screen added should have to declare itself either way.
  */
 
 const SECTIONS: readonly {
@@ -29,21 +32,14 @@ const SECTIONS: readonly {
       { href: "/app/onboarding", label: "Scan a project", ready: true },
       { href: "/app/watches", label: "Watched repos", ready: true },
       { href: "/app/integrations", label: "Integrations", ready: true },
+      { href: "/app/team", label: "Team", ready: true },
     ],
   },
 ];
 
-/**
- * Screens that are designed but not built.
- *
- * Collected into one quiet line rather than scattered through the nav as six
- * "SOON" badges. Listing them individually made a working product read as an
- * unfinished demo — the eye counted the disabled items, not the live ones —
- * while still being no more honest than naming them once.
- */
-const PLANNED = ["Team accounts"];
+export default async function AppLayout({ children }: LayoutProps<"/app">) {
+  const operator = await currentOperator();
 
-export default function AppLayout({ children }: LayoutProps<"/app">) {
   return (
     <div className="flex min-h-screen bg-canvas">
       <aside className="hidden w-64 shrink-0 flex-col px-4 py-5 lg:flex">
@@ -75,9 +71,9 @@ export default function AppLayout({ children }: LayoutProps<"/app">) {
           </p>
         </div>
 
-        <p className="mt-4 px-2 text-[11.5px] leading-relaxed text-ink-faint">
-          Coming soon · {PLANNED.join(" · ")}
-        </p>
+        <div className="mt-4">
+          <OperatorBadge operator={operator} />
+        </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">{children}</div>

@@ -10,6 +10,7 @@ import {
 } from "@/lib/domain/rule-presets";
 import { ruleIdFromName } from "@/lib/engine/rule-store";
 import { verifyBoundary } from "@/lib/engine/verify";
+import { gate } from "@/lib/server/operator";
 import { tavik } from "@/lib/server/tavik";
 
 /**
@@ -31,6 +32,9 @@ export interface CreateRuleResult {
 }
 
 export async function createRule(formData: FormData): Promise<CreateRuleResult> {
+  const allowed = await gate("manageRules");
+  if (!allowed.allowed) return { ok: false, message: allowed.reason };
+
   const name = String(formData.get("name") ?? "").trim();
   const sourceId = String(formData.get("source") ?? "");
   const targetId = String(formData.get("target") ?? "");
@@ -101,6 +105,9 @@ export async function createRule(formData: FormData): Promise<CreateRuleResult> 
 
 /** Remove a rule. The graph it asked about is untouched. */
 export async function deleteRule(ruleId: string): Promise<{ ok: boolean; message: string }> {
+  const allowed = await gate("manageRules");
+  if (!allowed.allowed) return { ok: false, message: allowed.reason };
+
   try {
     await tavik().rules.remove(ruleId);
     revalidatePath("/app");
