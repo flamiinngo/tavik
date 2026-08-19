@@ -311,6 +311,33 @@ export async function loadBoundary(id: string): Promise<{
 }
 
 /**
+ * A publisher the demo control can actually act on.
+ *
+ * Picked from the graph in front of us rather than named in the source. It used
+ * to be a constant — one account we happened to have scanned — so pointing Tavik
+ * at any other project produced a button offering to review somebody who was not
+ * there, which fails the moment it is pressed. On a dashboard, in front of
+ * whoever is being shown the product.
+ *
+ * Chooses the widest reach among unapproved accounts, because the control exists
+ * to make a rule visibly break: quarantining someone who supplies nothing
+ * produces no routes and demonstrates nothing.
+ */
+export async function demoPublisher(): Promise<string | null> {
+  try {
+    const publishers = await tavik().store.listPublishers();
+    const candidates = publishers
+      .filter((publisher) => publisher.trust !== "trusted" && publisher.packages > 0)
+      .sort((a, b) => b.packages - a.packages);
+
+    return candidates[0]?.name ?? null;
+  } catch {
+    // No demo control is better than one that throws on a dashboard.
+    return null;
+  }
+}
+
+/**
  * Publishers currently under review.
  *
  * Read so the demo control can show the right action — putting someone under

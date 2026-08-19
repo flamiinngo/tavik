@@ -13,6 +13,7 @@ import { Button, EmptyState, Timestamp } from "@/components/ui/primitives";
 import { buildSubgraph, chokepoints } from "@/lib/domain/subgraph";
 import { currentOperator } from "@/lib/server/operator";
 import {
+  demoPublisher,
   isWorkspaceEmpty,
   loadSecurityState,
   loadSetupProgress,
@@ -23,9 +24,7 @@ import {
 export const metadata = { title: "Overview" };
 export const dynamic = "force-dynamic";
 
-/** The publisher the demo control acts on — small enough exposure that a couple
- *  of changes genuinely close the boundary. */
-const DEMO_PUBLISHER = "sebmarkbage";
+
 
 /**
  * How long ago, in words.
@@ -84,12 +83,13 @@ export default async function OverviewPage() {
   }
 
   const operator = await currentOperator();
-  const [state, workLog, quarantined, lastSweep, setup] = await Promise.all([
+  const [state, workLog, quarantined, lastSweep, setup, demoTarget] = await Promise.all([
     loadSecurityState(),
     loadWorkLog(5),
     quarantinedPublishers(),
     lastSweepAt(),
     loadSetupProgress(operator.identified),
+    demoPublisher(),
   ]);
 
   const critical = state.boundaries.find((e) => e.verification?.status === "violated");
@@ -236,10 +236,15 @@ export default async function OverviewPage() {
         ) : null}
 
         {/* ── Try it ──────────────────────────────────────────────────────── */}
-        <DemoControl
-          publisher={DEMO_PUBLISHER}
-          isQuarantined={quarantined.includes(DEMO_PUBLISHER)}
-        />
+        {/* Only when there is somebody real to act on. A control offering to
+            review an account that is not in the graph fails the moment it is
+            pressed, in front of whoever is being shown the product. */}
+        {demoTarget ? (
+          <DemoControl
+            publisher={demoTarget}
+            isQuarantined={quarantined.includes(demoTarget)}
+          />
+        ) : null}
 
         {/* ── Graph + weakest links ───────────────────────────────────────── */}
         {subgraph && subgraph.nodes.length > 0 ? (

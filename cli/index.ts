@@ -42,6 +42,7 @@ const USAGE = `
     rules remove <id>       Stop enforcing one
     approve <publisher>...  Put an account on the approved publisher list
     review <publisher>...   Put an account under review instead
+    unapprove <publisher>.. Take an account back off the approved list
 
   ${bold("Options")}
     --json                  Machine-readable output
@@ -237,13 +238,22 @@ export async function main(argv: readonly string[]): Promise<number> {
 
     case "approve":
     case "review":
+    case "unapprove":
       if (args.positional.length === 0) {
         errorLine(`  Which publisher? ${grey(`e.g. tavik ${args.command} sindresorhus`)}`);
         return EXIT.USAGE;
       }
       return approve({
         publishers: args.positional,
-        trust: args.command === "approve" ? "trusted" : "quarantined",
+        trust:
+          args.command === "approve"
+            ? "trusted"
+            : args.command === "review"
+              ? "quarantined"
+              : // Back to simply not being on the list — which is where every
+                // account starts, and is a fact about the list rather than about
+                // the person.
+                "untrusted",
         operator,
         json,
       });
