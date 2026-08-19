@@ -1,4 +1,4 @@
-import { UploadForm } from "@/components/onboarding/UploadForm";
+import { SourcePicker } from "@/components/onboarding/SourcePicker";
 import { Tavik } from "@/components/mascot/Tavik";
 
 export const metadata = { title: "Scan a project" };
@@ -25,20 +25,23 @@ export default function OnboardingPage() {
               <span className="block text-ink-subtle">your own code.</span>
             </h2>
             <p className="mt-6 max-w-md text-[16px] leading-relaxed text-ink-soft">
-              Give it a <span className="font-medium text-ink">package-lock.json</span> and
-              Tavik reads what you actually installed, then asks the public npm registry
-              who can publish each one.
+              Give Tavik a repository, a lockfile, or your AWS account. It maps what
+              you actually depend on, works out who can change it, and starts proving
+              what can reach you.
             </p>
 
             <ol className="mt-9 space-y-5">
-              <Step n="1" title="Reads your lockfile">
-                The exact versions you resolved, and how they depend on each other.
+              <Step n="1" title="Reads what you actually installed">
+                Exact resolved versions — npm, Yarn or pnpm — plus whose code runs in
+                your CI workflows.
               </Step>
-              <Step n="2" title="Asks the registry who can publish">
-                One live request per package. No credentials — the registry is public.
+              <Step n="2" title="Finds out who can change it">
+                One live request per package to the public registry. No credentials;
+                the registry is public.
               </Step>
               <Step n="3" title="Builds the graph and checks your rules">
-                Then shows you every route into your service, with proof.
+                Then shows every route into your service, with a chain you can follow
+                yourself.
               </Step>
             </ol>
 
@@ -50,13 +53,13 @@ export default function OnboardingPage() {
           </div>
 
           <div className="min-w-0">
-            <UploadForm />
-            <div className="mt-8 flex items-center gap-4 rounded-md bg-card p-5 shadow-card">
+            <SourcePicker />
+            <div className="mt-6 flex items-center gap-4 rounded-md bg-card p-5 shadow-card">
               <Tavik pose="analyzing" size="sm" alt="" className="shrink-0" />
               <p className="text-[13.5px] leading-relaxed text-ink-soft">
-                Don&apos;t have one handy? Any Node project has a{" "}
-                <span className="font-mono text-ink">package-lock.json</span> in its root
-                after <code className="font-mono">npm install</code>.
+                Nothing to hand? Paste{" "}
+                <span className="font-mono text-ink">prettier/prettier</span> — a real,
+                public repository with 900+ packages behind it.
               </p>
             </div>
           </div>
