@@ -18,6 +18,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
+import { parseRules, type RuleSpec } from "./rules-file";
+
 export const CONFIG_FILENAME = "tavik.config.json";
 
 export interface RepoConfig {
@@ -29,6 +31,15 @@ export interface RepoConfig {
   readonly lockfile?: string;
   /** Publishers this workspace has already accepted. */
   readonly trustedPublishers?: readonly string[];
+  /**
+   * What must never become true, declared here rather than clicked once.
+   *
+   * Kept in the repository so adding a boundary is a reviewable change with a
+   * diff, like any other decision a team makes about its own system. Applied to
+   * the workspace on every scan and check, so the file and the dashboard cannot
+   * quietly drift apart.
+   */
+  readonly rules?: readonly RuleSpec[];
   /**
    * Whether a rule Tavik could not check should fail the build.
    *
@@ -109,6 +120,7 @@ export function readRepoConfig(path: string): RepoConfig {
     "lockfile",
     "trustedPublishers",
     "failOnUnknown",
+    "rules",
     "$schema",
   ]);
   const unknownKeys = Object.keys(config).filter((key) => !known.has(key));
@@ -116,7 +128,7 @@ export function readRepoConfig(path: string): RepoConfig {
     throw new ConfigError(
       `${path} has ${unknownKeys.length === 1 ? "a setting" : "settings"} Tavik doesn't ` +
         `recognise: ${unknownKeys.join(", ")}. Known settings are ` +
-        `service, environment, lockfile, trustedPublishers, failOnUnknown.`,
+        `service, environment, lockfile, trustedPublishers, failOnUnknown, rules.`,
     );
   }
 
@@ -146,6 +158,7 @@ export function readRepoConfig(path: string): RepoConfig {
     lockfile: string("lockfile"),
     trustedPublishers: trusted as readonly string[] | undefined,
     failOnUnknown: config.failOnUnknown as boolean | undefined,
+    rules: parseRules(config.rules, path),
   };
 }
 

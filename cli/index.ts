@@ -16,6 +16,8 @@ import { approve } from "./commands/approve";
 import { check } from "./commands/check";
 import { init } from "./commands/init";
 import { listRules } from "./commands/rules";
+import { addRule } from "./commands/rules-add";
+import { removeRule } from "./commands/rules-remove";
 import { scan } from "./commands/scan";
 import {
   ConfigError,
@@ -36,6 +38,8 @@ const USAGE = `
     scan                    Read this project into the graph
     check                   Verify every rule. ${dim("Exits non-zero when one breaks.")}
     rules                   List what this workspace has declared
+    rules add               Declare a new boundary, and write it to the config
+    rules remove <id>       Stop enforcing one
     approve <publisher>...  Put an account on the approved publisher list
     review <publisher>...   Put an account under review instead
 
@@ -46,6 +50,7 @@ const USAGE = `
     --service <name>        What to call this project in the graph
     --environment <name>    Which environment it runs in ${dim("(default: production)")}
     --rule <id>             Check one rule instead of all of them
+    --name --from --to      Declare a rule without being asked ${dim("(rules add)")}
     --allow-unchecked       Don't fail the build on a rule that couldn't be checked
     --as "<name>"           Who to record this as ${dim("(default: $TAVIK_OPERATOR, or the CI actor)")}
     --routes <n>            How many routes to print per broken rule ${dim("(default: 3)")}
@@ -101,6 +106,10 @@ function parse(argv: readonly string[]): Args {
 }
 
 const VALUE_FLAGS = new Set([
+  "name",
+  "from",
+  "to",
+  "hops",
   "repo",
   "lockfile",
   "service",
@@ -193,8 +202,32 @@ export async function main(argv: readonly string[]): Promise<number> {
         showPaths: num(flags, "routes", 3),
       });
 
-    case "rules":
+    case "rules": {
+      const sub = args.positional[0];
+      if (sub === "add") {
+        return addRule({
+          cwd,
+          name: str(flags, "name"),
+          from: str(flags, "from"),
+          to: str(flags, "to"),
+          maxHops: str(flags, "hops") === undefined ? undefined : num(flags, "hops", 8),
+        });
+      }
+      if (sub === "remove" || sub === "rm") {
+        const id = args.positional[1];
+        if (!id) {
+          errorLine(`  Which rule? ${grey("e.g. tavik rules remove abandoned-code")}`);
+          return EXIT.USAGE;
+        }
+        return removeRule(cwd, id);
+      }
+      if (sub !== undefined) {
+        errorLine(`  ${red(`No such thing as \`tavik rules ${sub}\`.`)}`);
+        errorLine(`  ${grey("Try `tavik rules`, `tavik rules add`, or `tavik rules remove <id>`.")}`);
+        return EXIT.USAGE;
+      }
       return listRules(json);
+    }
 
     case "approve":
     case "review":

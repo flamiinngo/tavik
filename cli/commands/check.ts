@@ -14,7 +14,8 @@ import { summarisePath } from "../../src/lib/domain/change";
 import type { SecurityBoundary } from "../../src/lib/domain/boundary";
 import { verifyBoundary } from "../../src/lib/engine/verify";
 import type { BoundaryVerification } from "../../src/lib/domain/boundary";
-import { connection, type RepoConfig } from "../config";
+import { applyRules, type AppliedRules } from "../apply-rules";
+import { connection, CONFIG_FILENAME, type RepoConfig } from "../config";
 import {
   bold,
   dim,
@@ -48,6 +49,14 @@ interface RuleOutcome {
 
 export async function check(options: CheckOptions): Promise<number> {
   const { store, client, rules, changeLog } = runtime(connection());
+
+  // The file first, so what gets checked is what the repository says — a rule
+  // added in a pull request takes effect on that build, with no separate step
+  // to remember.
+  let applied: AppliedRules | null = null;
+  if (options.config.rules && options.config.rules.length > 0) {
+    applied = await applyRules(rules, options.config.rules);
+  }
 
   let declared: readonly SecurityBoundary[];
   try {
@@ -145,7 +154,7 @@ export async function check(options: CheckOptions): Promise<number> {
     return exitCode(broken.length, unchecked.length, options.failOnUnknown);
   }
 
-  renderReport(outcomes, broken, unchecked, holding, Date.now() - startedAt, options);
+  renderReport(outcomes, broken, unchecked, holding, Date.now() - startedAt, options, applied);
   return exitCode(broken.length, unchecked.length, options.failOnUnknown);
 }
 
@@ -164,7 +173,30 @@ function renderReport(
   holding: readonly RuleOutcome[],
   elapsedMs: number,
   options: CheckOptions,
+  applied: AppliedRules | null,
 ): void {
+  if (applied) {
+    // Says where the rules came from, and names the ones that came from
+    // somewhere else. A rule failing a build that nobody can find in the file
+    // is the kind of thing that gets a whole tool switched off.
+    heading(
+      `Applying ${plural(applied.fromFile.length, "rule")} from ${CONFIG_FILENAME}` +
+        (applied.written.length > 0 ? ` (${applied.written.length} updated)` : ""),
+    );
+    // Only when this run is actually checking them. With --rule the report
+    // covers one rule, and claiming five others are "also being checked" in the
+    // same breath as "checked 1 rule" is simply untrue.
+    if (applied.alsoInWorkspace.length > 0 && options.ruleId === undefined) {
+      line(
+        `  ${grey(
+          `Also checking ${plural(applied.alsoInWorkspace.length, "rule")} this workspace ` +
+            `already had: ${applied.alsoInWorkspace.map((rule) => rule.name).join(", ")}.`,
+        )}`,
+      );
+      line(`  ${grey("Remove one with `tavik rules remove <id>`.")}`);
+    }
+  }
+
   heading(`Checked ${plural(outcomes.length, "rule")} in ${duration(elapsedMs)}`);
   line();
 

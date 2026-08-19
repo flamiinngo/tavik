@@ -12,6 +12,7 @@
  * unreachable database, and neither is a bug.
  */
 
+import { ConfigError } from "./config";
 import { main } from "./index";
 import { errorLine, grey, red } from "./output";
 import { EXIT } from "./runtime";
@@ -29,10 +30,15 @@ main(process.argv.slice(2))
 
     // The stack is still available when it is actually wanted, without making it
     // the default thing a build log shows.
+    //
+    // Never offered for a config error. Those are someone's file being wrong,
+    // not Tavik being broken, and pointing at a stack trace sends them looking
+    // for a bug in a tool when the answer is in the message they just read.
+    const worthDebugging = error instanceof Error && !(error instanceof ConfigError);
     if (process.env.TAVIK_DEBUG && error instanceof Error && error.stack) {
       errorLine();
       errorLine(grey(error.stack));
-    } else if (error instanceof Error && error.stack) {
+    } else if (worthDebugging && error.stack) {
       errorLine(`  ${grey("Set TAVIK_DEBUG=1 for the full stack.")}`);
     }
 

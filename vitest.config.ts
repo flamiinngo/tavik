@@ -12,6 +12,10 @@ export default defineConfig({
     // they arrive, get their own environment via a `// @vitest-environment`
     // pragma rather than slowing this suite down with jsdom everywhere.
     environment: "node",
-    include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+    // `cli/` is included because it decides what gets checked in CI. A rules
+    // file that parses when it should not is coverage a team believes it has
+    // and does not, which is exactly the failure the whole product exists to
+    // prevent — it deserves the same suite as the engine, not less.
+    include: ["src/**/*.test.ts", "src/**/*.test.tsx", "cli/**/*.test.ts"],
   },
 });
