@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { EmptyWorkspace } from "@/components/app/EmptyWorkspace";
+import { lastSweepAt } from "@/lib/engine/scheduler";
 import { DemoControl } from "@/components/demo/DemoControl";
 import { PathTrace } from "@/components/graph/PathTrace";
 import { SecurityGraph } from "@/components/graph/SecurityGraph";
@@ -22,6 +23,24 @@ export const dynamic = "force-dynamic";
 /** The publisher the demo control acts on — small enough exposure that a couple
  *  of changes genuinely close the boundary. */
 const DEMO_PUBLISHER = "sebmarkbage";
+
+/**
+ * How long ago, in words.
+ *
+ * The one place Tavik uses relative time. Timestamps elsewhere are evidence and
+ * stay absolute, but "when did you last look?" is a question about recency, and
+ * "3 minutes ago" answers it better than an ISO string.
+ */
+function describeAge(at: number): string {
+  const seconds = Math.max(0, Math.round((Date.now() - at) / 1000));
+  if (seconds < 45) return "moments ago";
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  const days = Math.round(hours / 24);
+  return `${days} day${days === 1 ? "" : "s"} ago`;
+}
 
 /**
  * A measurement tile.
@@ -56,10 +75,11 @@ export default async function OverviewPage() {
     );
   }
 
-  const [state, workLog, quarantined] = await Promise.all([
+  const [state, workLog, quarantined, lastSweep] = await Promise.all([
     loadSecurityState(),
     loadWorkLog(5),
     quarantinedPublishers(),
+    lastSweepAt(),
   ]);
 
   const critical = state.boundaries.find((e) => e.verification?.status === "violated");
@@ -83,9 +103,14 @@ export default async function OverviewPage() {
               : "State unavailable"}
           </p>
         </div>
+        {/* States when it actually last ran, not that it is always running.
+            The previous copy claimed continuous checking while nothing was
+            scheduled — the exact kind of overstatement this product refuses. */}
         <span className="hidden items-center gap-2 rounded-pill bg-card px-3 py-1.5 text-[12.5px] text-ink-soft shadow-card sm:inline-flex">
           <span className="size-1.5 animate-breathe rounded-pill bg-safe" aria-hidden />
-          Checking continuously
+          {lastSweep
+            ? `Last checked ${describeAge(lastSweep)}`
+            : "First check starting…"}
         </span>
       </header>
 

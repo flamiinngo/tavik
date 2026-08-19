@@ -209,6 +209,44 @@ export class GraphStore {
     );
   }
 
+  /**
+   * Store a small piece of workspace state, such as when the last sweep ran.
+   *
+   * Kept under its own `Meta` label so it can never appear in a traversal. The
+   * alternative — writing a log entry per sweep — would bury real events under
+   * routine heartbeats and make the work log unreadable.
+   */
+  async setMeta(key: string, value: number, options: QueryOptions = {}): Promise<void> {
+    const label = identifier("Meta");
+    await this.client.query(
+      `UNWIND $rows AS row
+       MERGE (n {id: row.id})
+       SET n:${label.text}, n.meta_key = row.key, n.meta_value = row.value`,
+      {
+        ...options,
+        parameters: {
+          rows: [
+            { id: urnToNodeId(`tavik:meta:${key}`), key, value },
+          ] as unknown as HydraParam,
+        },
+      },
+    );
+  }
+
+  async getMeta(key: string, options: QueryOptions = {}): Promise<number | null> {
+    const label = identifier("Meta");
+    try {
+      const result = await this.client.query<{ value: number }>(
+        `MATCH (n:${label.text} {id: $id}) RETURN n.meta_value AS value`,
+        { ...options, parameters: { id: urnToNodeId(`tavik:meta:${key}`) } },
+      );
+      const value = Number(result.rows[0]?.value);
+      return Number.isFinite(value) ? value : null;
+    } catch {
+      return null;
+    }
+  }
+
   /** Look up an entity by URN, for confirming a mutation targeted something real. */
   async getEntity(
     urn: EntityUrn,

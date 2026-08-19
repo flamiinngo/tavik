@@ -68,10 +68,12 @@ export default function AppLayout({ children }: LayoutProps<"/app">) {
         <div className="rounded-md bg-card p-4 shadow-card">
           <p className="flex items-center gap-2 text-[13px] font-medium text-ink">
             <span className="size-1.5 animate-breathe rounded-pill bg-safe" aria-hidden />
-            Watching now
+            Watching
           </p>
+          {/* Says what it does, at the interval it actually does it. */}
           <p className="mt-1.5 text-[12.5px] leading-relaxed text-ink-subtle">
-            Connected to HydraDB. Re-checks every rule whenever anything changes.
+            Re-checks every rule about once a minute and records anything that
+            changes.
           </p>
         </div>
 

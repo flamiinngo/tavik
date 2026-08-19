@@ -19,6 +19,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { STARTER_RULES } from "../src/lib/domain/starter-rules";
+import { RuleStore } from "../src/lib/engine/rule-store";
 import { HydraClient } from "../src/lib/hydra/client";
 import { GraphStore } from "../src/lib/hydra/graph-store";
 import { ingestProject } from "../src/lib/ingest/pipeline";
@@ -103,6 +105,16 @@ const report = await ingestProject(store, {
   },
 });
 process.stdout.write("\n\n");
+
+// Seed the starter rules if this workspace has none, so a scan from the command
+// line leaves something watching the data it just wrote. Without this, scanning
+// via the CLI produced a populated graph with no rules against it, which looks
+// exactly like a broken product.
+const ruleStore = new RuleStore(client);
+if ((await ruleStore.list()).length === 0) {
+  for (const rule of STARTER_RULES) await ruleStore.save(rule);
+  console.log(`  seeded ${STARTER_RULES.length} starter rules\n`);
+}
 
 console.log("Security state written to HydraDB");
 console.log(`  service            ${report.serviceUrn}`);
