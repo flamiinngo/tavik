@@ -27,6 +27,7 @@ const SECTIONS: readonly {
       { href: "/app/timeline", label: "Timeline", ready: true },
       { href: "/app/work-log", label: "Work log", ready: true },
       { href: "/app/onboarding", label: "Scan a project", ready: true },
+      { href: "/app/watches", label: "Watched repos", ready: true },
       { href: "/app/integrations", label: "Integrations", ready: true },
     ],
   },
@@ -40,7 +41,7 @@ const SECTIONS: readonly {
  * unfinished demo — the eye counted the disabled items, not the live ones —
  * while still being no more honest than naming them once.
  */
-const PLANNED = ["Scheduled repo sync", "Team accounts"];
+const PLANNED = ["Team accounts"];
 
 export default function AppLayout({ children }: LayoutProps<"/app">) {
   return (

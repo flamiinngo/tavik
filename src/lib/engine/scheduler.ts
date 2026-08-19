@@ -21,9 +21,21 @@ import { verifyBoundary } from "./verify";
  */
 
 const SWEEP_KEY = "last_sweep_at";
+const SYNC_KEY = "last_sync_at";
 
 /** How often to re-check every rule. */
 const INTERVAL_MS = Number(process.env.TAVIK_SWEEP_MS ?? 60_000);
+
+/**
+ * How often to re-read watched repositories.
+ *
+ * Far less frequent than the rule sweep, because the two answer different
+ * questions at very different costs. Checking a rule is a graph query; re-reading
+ * a repository is hundreds of requests to a public registry we are using for
+ * free. Fifteen minutes is well inside the window that matters — a dependency
+ * shipped at 2pm is noticed by 2:15 — while staying a good neighbour.
+ */
+const SYNC_INTERVAL_MS = Number(process.env.TAVIK_SYNC_MS ?? 15 * 60_000);
 
 /**
  * Guarded on globalThis rather than a module constant.
@@ -34,6 +46,7 @@ const INTERVAL_MS = Number(process.env.TAVIK_SWEEP_MS ?? 60_000);
  */
 const globalForScheduler = globalThis as unknown as {
   __tavikSweep?: NodeJS.Timeout;
+  __tavikSync?: NodeJS.Timeout;
 };
 
 export interface SweepResult {
@@ -108,6 +121,42 @@ export async function lastSweepAt(): Promise<number | null> {
   return tavik().store.getMeta(SWEEP_KEY);
 }
 
+/** When watched repositories were last re-read. */
+export async function lastSyncAt(): Promise<number | null> {
+  return tavik().store.getMeta(SYNC_KEY);
+}
+
+/**
+ * Re-read every watched repository, then let the next sweep judge the result.
+ *
+ * Deliberately does not verify afterwards. The sweep is already running on its
+ * own cadence and will pick up whatever changed within the minute, so triggering
+ * a second check here would double the work to save at most sixty seconds — and
+ * two paths writing history at once is how a change log ends up with duplicate
+ * entries for one event.
+ */
+export async function syncRepos(): Promise<void> {
+  try {
+    const { syncAllRepos } = await import("./repo-sync");
+    const outcomes = await syncAllRepos();
+
+    for (const outcome of outcomes) {
+      if (outcome.error) {
+        console.warn(`[tavik] sync ${outcome.repo}: ${outcome.error}`);
+      } else if (outcome.changed) {
+        console.log(
+          `[tavik] ${outcome.repo} changed — re-read ${outcome.packages} packages`,
+        );
+      }
+    }
+
+    await tavik().store.setMeta(SYNC_KEY, Date.now());
+  } catch {
+    // A failed sync leaves the graph as it was. The next one tries again, and
+    // every rule keeps answering against what is currently known.
+  }
+}
+
 /**
  * Start sweeping, once per process.
  *
@@ -129,12 +178,23 @@ export function startScheduler(): void {
     void sweep();
   }, INTERVAL_MS);
 
-  // Do not hold the process open on its own account.
+  // Watched repositories, on a much slower cadence — see SYNC_INTERVAL_MS.
+  // Offset from boot so a restart does not fire both at once.
+  setTimeout(() => {
+    void syncRepos();
+  }, 30_000);
+
+  globalForScheduler.__tavikSync = setInterval(() => {
+    void syncRepos();
+  }, SYNC_INTERVAL_MS);
+
+  // Do not hold the process open on their own account.
   globalForScheduler.__tavikSweep.unref?.();
+  globalForScheduler.__tavikSync.unref?.();
 
   console.log(
-    `[tavik] continuous verification started — every rule re-checked every ${Math.round(
+    `[tavik] continuous verification started — rules re-checked every ${Math.round(
       INTERVAL_MS / 1000,
-    )}s`,
+    )}s, watched repositories re-read every ${Math.round(SYNC_INTERVAL_MS / 60_000)}m`,
   );
 }

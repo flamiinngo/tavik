@@ -56,8 +56,8 @@ export default function IntegrationsPage() {
     },
     {
       name: "Scheduled repo sync",
-      status: "planned",
-      what: "Re-reading a repository when it changes, rather than when someone scans it. Rules are already re-checked every minute; this would re-read the source too.",
+      status: "connected",
+      what: "Re-reads watched repositories every fifteen minutes, and only does the expensive work when a lockfile has actually moved. Rules are re-checked every minute against whatever it finds.",
     },
     {
       name: "Team accounts",

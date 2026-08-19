@@ -10,6 +10,7 @@ import type { ChangeEvent } from "@/lib/domain/change";
 import { STARTER_RULES } from "@/lib/domain/starter-rules";
 import { ChangeLog } from "@/lib/engine/change-log";
 import { RuleStore } from "@/lib/engine/rule-store";
+import { WatchStore } from "@/lib/engine/watched-repos";
 import { verifyBoundary } from "@/lib/engine/verify";
 import { hydraEnv } from "@/lib/env";
 import { HydraClient } from "@/lib/hydra/client";
@@ -34,6 +35,7 @@ let cached: {
   store: GraphStore;
   changeLog: ChangeLog;
   rules: RuleStore;
+  watches: WatchStore;
 } | null = null;
 
 export function tavik() {
@@ -44,6 +46,7 @@ export function tavik() {
       store: new GraphStore(client),
       changeLog: new ChangeLog(client),
       rules: new RuleStore(client),
+      watches: new WatchStore(client),
     };
   }
   return cached;

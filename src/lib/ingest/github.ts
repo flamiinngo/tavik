@@ -155,6 +155,36 @@ export async function fetchLockfile(input: RepoRef): Promise<RepoLockfile> {
   );
 }
 
+/**
+ * The commit a file was last changed in.
+ *
+ * The cheap question, asked before the expensive one. Re-reading a repository
+ * means hundreds of registry requests; asking whether its lockfile has moved is
+ * a single small call. A quiet repository should cost almost nothing to watch,
+ * or watching many becomes something a team turns off.
+ *
+ * Returns null when the file or repository cannot be read, which the caller
+ * treats as "cannot tell" rather than "unchanged" — assuming unchanged would let
+ * a broken watch look like a healthy one forever.
+ */
+export async function fetchLatestSha(
+  ref: Required<RepoRef>,
+  path: string,
+): Promise<string | null> {
+  try {
+    const response = await fetch(
+      `${API}/repos/${ref.owner}/${ref.repo}/commits?path=${encodeURIComponent(path)}&sha=${encodeURIComponent(ref.ref)}&per_page=1`,
+      { headers: headers(), cache: "no-store" },
+    );
+    if (!response.ok) return null;
+
+    const commits = (await response.json()) as { sha?: string }[];
+    return commits[0]?.sha ?? null;
+  } catch {
+    return null;
+  }
+}
+
 // ── GitHub Actions ──────────────────────────────────────────────────────────
 
 export interface WorkflowAction {
