@@ -43,29 +43,50 @@ export interface IamProjection {
   readonly assumptions: number;
 }
 
-/** Actions that mean "can read or write the data itself", not just describe it. */
+/**
+ * Actions that reach the data itself, rather than describing where it lives.
+ *
+ * The distinction matters and is easy to get wrong. `s3:GetObject` reads a
+ * customer record; `s3:GetBucketLocation` and `s3:ListBucket` only reveal that
+ * the bucket exists and where. Treating the latter as data access invents routes
+ * that cannot actually reach anything, and a product whose whole claim is
+ * "here is the exact route" cannot afford to point at one that isn't real.
+ *
+ * So these match specific object-level actions rather than prefixes.
+ */
 const DATA_ACTIONS = [
-  /^s3:get/i,
-  /^s3:put/i,
-  /^s3:delete/i,
-  /^s3:\*/,
-  /^dynamodb:(get|put|update|delete|scan|query|batch)/i,
-  /^dynamodb:\*/,
-  /^rds-data:/i,
+  /^s3:getobject/i,
+  /^s3:putobject/i,
+  /^s3:deleteobject/i,
+  /^s3:getobjectversion/i,
+  /^s3:restoreobject/i,
+  /^s3:\*$/,
+  /^dynamodb:(getitem|batchgetitem|putitem|updateitem|deleteitem|batchwriteitem|scan|query)/i,
+  /^dynamodb:\*$/,
+  /^rds-data:(executestatement|batchexecutestatement|executesql)/i,
   /^rds:connect/i,
+  /^rds-db:connect/i,
   /^secretsmanager:getsecretvalue/i,
   /^kms:decrypt/i,
   /^\*$/,
 ];
 
-/** Principals that indicate a CI/CD identity rather than a human or service. */
+/**
+ * Principals that indicate a CI/CD identity rather than a role.
+ *
+ * Only the identity-provider forms. An earlier version also matched any role ARN
+ * whose name contained "deploy" or "build", which meant `role/deploy` was read
+ * as a CI identity instead of a role — and role-to-role trust edges were never
+ * created at all, making privilege-escalation chains invisible. A role is a
+ * role; what makes something CI is the federated principal that assumes it.
+ */
 const CI_PRINCIPAL_HINTS = [
   /token\.actions\.githubusercontent\.com/i,
-  /gitlab/i,
-  /circleci/i,
-  /buildkite/i,
+  /gitlab\.com/i,
+  /oidc\.circleci\.com/i,
+  /agent\.buildkite\.com/i,
   /codebuild\.amazonaws\.com/i,
-  /^arn:aws:iam::\d+:role\/.*(ci|build|deploy|pipeline|actions)/i,
+  /codepipeline\.amazonaws\.com/i,
 ];
 
 interface Statement {
