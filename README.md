@@ -8,15 +8,17 @@ Built for [Hack Hydra](https://hackhydra.hydradb.com/) — Track 02, supply chai
 
 ## The problem
 
-You don't write most of your code. You borrow it — hundreds or thousands of
-packages written by strangers. A typical application is around 5% your own code
-and 95% somebody else's.
+You wrote your application. You reviewed it, you own it, you know what it does.
 
-Every one of those strangers can publish an update at any moment, and it lands in
-your production system automatically.
+But it doesn't ship alone. Hundreds of other people's packages ship with it, and
+every one of those people can change theirs tomorrow, without telling you, and it
+lands in your production system automatically. Your CI runs somebody else's
+actions with your deploy keys. Your pipeline assumes roles that can assume other
+roles.
 
-Nobody can currently answer: **"which strangers can reach my production code
-right now, and by what route?"**
+None of that is a statement about how much code you wrote. It is a question
+about who holds the keys afterwards — and nobody can currently answer it:
+**"who can reach my production system right now, and by what route?"**
 
 Tavik answers it, re-answers it every minute, and proves each answer with a
 specific chain you can check yourself.
