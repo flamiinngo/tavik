@@ -1,4 +1,6 @@
 import { Logo } from "@/components/brand/Logo";
+import { MobileNav } from "@/components/app/MobileNav";
+import { NAV_SECTIONS } from "@/lib/nav";
 import { NavLink } from "@/components/app/NavLink";
 import { OperatorBadge } from "@/components/app/OperatorBadge";
 import { currentOperator } from "@/lib/server/operator";
@@ -16,49 +18,24 @@ import { currentOperator } from "@/lib/server/operator";
  * next screen added should have to declare itself either way.
  */
 
-const SECTIONS: readonly {
-  heading: string;
-  items: readonly { href: string; label: string; ready: boolean }[];
-}[] = [
-  {
-    // What is true right now, and how it got that way. Where someone spends
-    // their time once Tavik is running.
-    heading: "What's true now",
-    items: [
-      { href: "/app", label: "Overview", ready: true },
-      { href: "/app/boundaries", label: "Rules", ready: true },
-      { href: "/app/publishers", label: "Publishers", ready: true },
-      { href: "/app/graph", label: "Security graph", ready: true },
-      { href: "/app/timeline", label: "Timeline", ready: true },
-      { href: "/app/work-log", label: "Work log", ready: true },
-    ],
-  },
-  {
-    // Everything that decides what Tavik watches and how. Separated because a
-    // flat list of ten made the product read as ten features rather than one
-    // thing with a setup and a state.
-    heading: "Setup",
-    items: [
-      { href: "/app/onboarding", label: "Get started", ready: true },
-      { href: "/app/watches", label: "Watched repos", ready: true },
-      { href: "/app/integrations", label: "Integrations", ready: true },
-      { href: "/app/team", label: "Team", ready: true },
-    ],
-  },
-];
+
 
 export default async function AppLayout({ children }: LayoutProps<"/app">) {
   const operator = await currentOperator();
 
   return (
-    <div className="flex min-h-screen bg-canvas">
+    <div className="flex min-h-screen flex-col bg-canvas lg:flex-row">
+      {/* Below lg the sidebar is hidden, so without this there is no way off
+          whichever screen you landed on. */}
+      <MobileNav sections={NAV_SECTIONS} />
+
       <aside className="hidden w-64 shrink-0 flex-col px-4 py-5 lg:flex">
         <div className="mb-7 px-2">
           <Logo href="/app" />
         </div>
 
         <nav className="flex-1" aria-label="Main">
-          {SECTIONS.map((section, index) => (
+          {NAV_SECTIONS.map((section, index) => (
             <div key={section.heading} className={index > 0 ? "mt-7" : undefined}>
               <h2 className="px-3 pb-2 text-[11px] font-medium tracking-wide text-ink-faint uppercase">
                 {section.heading}
