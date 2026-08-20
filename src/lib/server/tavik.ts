@@ -194,7 +194,7 @@ export async function loadSetupProgress(operatorIdentified: boolean): Promise<Se
       id: "enforce",
       title: "Enforce it where changes happen",
       why: "Run `tavik check` in CI and a pull request that opens a route fails the build.",
-      href: "/app/onboarding#cli",
+      href: "/app/onboarding?step=enforce",
       action: "Set it up",
       done: enforcedInCi,
     },

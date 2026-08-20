@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 
 import { IdentifyForm } from "@/components/team/IdentifyForm";
@@ -65,9 +66,14 @@ export function Guide({
   operator: Operator;
 }) {
   // Opens on the first thing left to do, so someone returning is not made to
-  // page past work they have already finished.
+  // page past work they have already finished — unless a link named a step, in
+  // which case that wins. The overview links straight here to show somebody the
+  // command line, and landing them on step one to click through three screens
+  // they have already done is how a link stops being followed.
+  const params = useSearchParams();
+  const asked = progress.steps.findIndex((step) => step.id === params.get("step"));
   const firstUndone = progress.steps.findIndex((step) => !step.done);
-  const [index, setIndex] = useState(firstUndone === -1 ? 0 : firstUndone);
+  const [index, setIndex] = useState(asked !== -1 ? asked : firstUndone === -1 ? 0 : firstUndone);
 
   const step = progress.steps[index];
   const copy = CONTENT[index];
