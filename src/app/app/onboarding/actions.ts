@@ -6,7 +6,7 @@ import { parseLockfile } from "@/lib/ingest/lockfile";
 import { ingestProject } from "@/lib/ingest/pipeline";
 import { gate } from "@/lib/server/operator";
 import { scanRepository } from "./github-actions";
-import { seedStarterRules, tavik } from "@/lib/server/tavik";
+import { invalidateSecurityState, seedStarterRules, tavik } from "@/lib/server/tavik";
 
 /**
  * The project the sample button reads.
@@ -108,6 +108,9 @@ export async function resetWorkspace(): Promise<{ ok: boolean; message: string }
     }
     await store.clear();
 
+    // The held verdict is now out of date. Clearing it before the page
+    // cache means the next read re-checks against what just changed.
+    invalidateSecurityState();
     revalidatePath("/");
     revalidatePath("/app");
     revalidatePath("/app/boundaries");
@@ -204,6 +207,9 @@ export async function ingestLockfile(
     // doesn't should be empty.
     await seedStarterRules();
 
+    // The held verdict is now out of date. Clearing it before the page
+    // cache means the next read re-checks against what just changed.
+    invalidateSecurityState();
     revalidatePath("/");
     revalidatePath("/app");
     revalidatePath("/app/boundaries");

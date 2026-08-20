@@ -6,7 +6,7 @@ import { entityUrn, type EntityUrn } from "@/lib/domain/entities";
 import { event } from "@/lib/engine/change-log";
 import { verifyBoundary } from "@/lib/engine/verify";
 import { gate } from "@/lib/server/operator";
-import { findBoundary, tavik } from "@/lib/server/tavik";
+import { findBoundary, invalidateSecurityState, tavik } from "@/lib/server/tavik";
 
 /**
  * The demo control.
@@ -96,6 +96,9 @@ export async function setPublisherTrust(
       // History is secondary; the state change already happened.
     }
 
+    // The held verdict is now out of date. Clearing it before the page
+    // cache means the next read re-checks against what just changed.
+    invalidateSecurityState();
     revalidatePath("/app");
     revalidatePath("/app/boundaries");
     revalidatePath("/app/boundaries/blocked-publishers");

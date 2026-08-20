@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { syncRepo } from "@/lib/engine/repo-sync";
 import { fetchLatestSha, fetchLockfile, GitHubError, parseRepoInput } from "@/lib/ingest/github";
 import { gate } from "@/lib/server/operator";
-import { tavik } from "@/lib/server/tavik";
+import { invalidateSecurityState, tavik } from "@/lib/server/tavik";
 
 /**
  * Watching a repository.
@@ -62,6 +62,9 @@ export async function addWatch(formData: FormData): Promise<WatchResult> {
       lastChangedAt: 0,
     });
 
+    // The held verdict is now out of date. Clearing it before the page
+    // cache means the next read re-checks against what just changed.
+    invalidateSecurityState();
     revalidatePath("/app");
     revalidatePath("/app/watches");
     revalidatePath("/app/boundaries");
@@ -94,6 +97,9 @@ export async function removeWatch(owner: string, repo: string): Promise<WatchRes
 
   try {
     await tavik().watches.unwatch(owner, repo);
+    // The held verdict is now out of date. Clearing it before the page
+    // cache means the next read re-checks against what just changed.
+    invalidateSecurityState();
     revalidatePath("/app/watches");
     return { ok: true, message: `Stopped watching ${owner}/${repo}.` };
   } catch (error) {
@@ -116,6 +122,9 @@ export async function syncNow(owner: string, repo: string): Promise<WatchResult>
     if (!watched) return { ok: false, message: "That repository isn't being watched." };
 
     const outcome = await syncRepo(watched);
+    // The held verdict is now out of date. Clearing it before the page
+    // cache means the next read re-checks against what just changed.
+    invalidateSecurityState();
     revalidatePath("/app");
     revalidatePath("/app/watches");
 

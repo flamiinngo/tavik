@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { entityUrn, type EntityUrn } from "@/lib/domain/entities";
 import { event } from "@/lib/engine/change-log";
 import { gate } from "@/lib/server/operator";
-import { tavik } from "@/lib/server/tavik";
+import { invalidateSecurityState, tavik } from "@/lib/server/tavik";
 
 /**
  * Deciding who you trust.
@@ -55,6 +55,9 @@ export async function setTrust(
     await store.setTrust(urn, trust);
     await recordTrustChange(allowed.operator.name, name, before, trust);
 
+    // The held verdict is now out of date. Clearing it before the page
+    // cache means the next read re-checks against what just changed.
+    invalidateSecurityState();
     revalidatePath("/app");
     revalidatePath("/app/publishers");
     revalidatePath("/app/boundaries");

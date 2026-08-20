@@ -153,17 +153,18 @@ export async function loadSetupProgress(operatorIdentified: boolean): Promise<Se
 
   // Each fact is read independently and defaults to "not done" when it cannot
   // be read. An unreachable database must not tick boxes.
-  const scanned = await safely(async () => (await store.countEntitiesOfKind("Service")) > 0, false);
-
-  const ownRule = await safely(async () => {
-    const starterIds = new Set(STARTER_RULES.map((rule) => rule.id));
-    return (await rules.list()).some((rule) => !starterIds.has(rule.id));
-  }, false);
-
-  const enforcedInCi = await safely(
-    async () => (await store.getMeta("cli.lastCheckAt")) !== null,
-    false,
-  );
+  //
+  // Asked all at once. Three unrelated questions in sequence is three round
+  // trips waited out one at a time, and this runs on two screens — so it was
+  // paying that cost twice over on a database across the internet.
+  const [scanned, ownRule, enforcedInCi] = await Promise.all([
+    safely(async () => (await store.countEntitiesOfKind("Service")) > 0, false),
+    safely(async () => {
+      const starterIds = new Set(STARTER_RULES.map((rule) => rule.id));
+      return (await rules.list()).some((rule) => !starterIds.has(rule.id));
+    }, false),
+    safely(async () => (await store.getMeta("cli.lastCheckAt")) !== null, false),
+  ]);
 
   const steps: SetupStep[] = [
     {
@@ -238,7 +239,41 @@ export interface SecurityStateSummary {
  * scheduled verification (`npm run verify`, and the scheduler that will replace
  * it), not to the thing that displays it.
  */
+/**
+ * The last verdict, and when it was reached.
+ *
+ * Every round trip to a hosted HydraDB costs well over a second, and a rule
+ * needs three or four of them. Five rules is eight seconds — paid again on every
+ * screen, so moving between Overview and Rules meant sitting through the whole
+ * check twice for an answer that could not have changed in between.
+ *
+ * Held for a few seconds only, and thrown away the instant anything is written.
+ * That last part is what keeps it honest: the danger with caching a security
+ * verdict is showing green after somebody changed something, so every action
+ * that touches the graph clears this before it returns.
+ *
+ * The interface still says when the answer was reached, so a held verdict is
+ * never passed off as a fresh one.
+ */
+let lastState: { at: number; value: SecurityStateSummary } | null = null;
+
+const STATE_TTL_MS = 20_000;
+
+/**
+ * Throw the held verdict away.
+ *
+ * Called by everything that changes the graph. Deliberately not optional: a
+ * mutation that forgets to call this would leave the dashboard reporting the
+ * state of the world as it was before the change, which is precisely the
+ * failure this product exists to prevent.
+ */
+export function invalidateSecurityState(): void {
+  lastState = null;
+}
+
 export async function loadSecurityState(): Promise<SecurityStateSummary> {
+  if (lastState && Date.now() - lastState.at < STATE_TTL_MS) return lastState.value;
+
   const { client, store } = tavik();
 
   let entityCount: number | null = null;
@@ -251,31 +286,46 @@ export async function loadSecurityState(): Promise<SecurityStateSummary> {
       error instanceof Error ? error.message : "HydraDB could not be reached.";
   }
 
-  const boundaries: BoundaryWithVerification[] = [];
-
   const rules = connectionError ? [] : await loadRules();
 
-  for (const boundary of rules) {
-    if (connectionError) {
-      boundaries.push({ boundary, verification: null });
-      continue;
-    }
-
-    const verification = await verifyBoundary(store, client, boundary);
-    boundaries.push({ boundary, verification });
-  }
+  // Checked together, not one after another.
+  //
+  // Every rule is several round trips — resolve both ends, then walk the paths —
+  // and running five of them in sequence meant fifteen trips nose to tail. On a
+  // database sitting next to the app that is unnoticeable. Against one across
+  // the internet it was thirteen seconds before this page drew anything, which
+  // reads as a dead link: you click Overview and nothing happens for long enough
+  // to assume the click was lost.
+  //
+  // Five at a time rather than everything at once. The rules run in parallel and
+  // each one's own queries stay in order, which keeps the peak low enough not to
+  // look like a flood to whatever sits in front of the database.
+  const boundaries: BoundaryWithVerification[] = connectionError
+    ? rules.map((boundary) => ({ boundary, verification: null }))
+    : await Promise.all(
+        rules.map(async (boundary) => ({
+          boundary,
+          verification: await verifyBoundary(store, client, boundary),
+        })),
+      );
 
   const counts = { verified: 0, violated: 0, investigating: 0, unknown: 0 };
   for (const entry of boundaries) {
     counts[entry.verification?.status ?? "unknown"] += 1;
   }
 
-  return {
+  const summary: SecurityStateSummary = {
     boundaries: sortByUrgency(boundaries),
     counts,
     entityCount,
     connectionError,
   };
+
+  // A failed read is not worth holding on to — the next request should try
+  // again rather than repeat the failure for twenty seconds.
+  if (!connectionError) lastState = { at: Date.now(), value: summary };
+
+  return summary;
 }
 
 /** Verify a single boundary, for its detail page. */

@@ -9,7 +9,7 @@ import { verifyBoundary } from "@/lib/engine/verify";
 import type { RelationKind } from "@/lib/domain/entities";
 import { isRelationKind, type EntityUrn } from "@/lib/domain/entities";
 import { requirePermission } from "@/lib/server/operator";
-import { findBoundary, tavik } from "@/lib/server/tavik";
+import { findBoundary, invalidateSecurityState, tavik } from "@/lib/server/tavik";
 
 /**
  * Apply a remediation, then prove it worked.
@@ -118,6 +118,9 @@ export async function applyRemediation(
       operator.name,
     );
 
+    // The held verdict is now out of date. Clearing it before the page
+    // cache means the next read re-checks against what just changed.
+    invalidateSecurityState();
     revalidatePath(`/app/boundaries/${boundaryId}`);
     revalidatePath("/app");
 

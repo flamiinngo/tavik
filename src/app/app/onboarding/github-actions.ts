@@ -13,7 +13,7 @@ import { parseLockfile } from "@/lib/ingest/lockfile";
 import { ingestProject } from "@/lib/ingest/pipeline";
 import { projectWorkflows } from "@/lib/ingest/workflows";
 import { gate } from "@/lib/server/operator";
-import { seedStarterRules, tavik } from "@/lib/server/tavik";
+import { invalidateSecurityState, seedStarterRules, tavik } from "@/lib/server/tavik";
 
 /**
  * Scan a GitHub repository.
@@ -100,6 +100,9 @@ export async function scanRepository(formData: FormData): Promise<ScanRepoResult
 
     await seedStarterRules();
 
+    // The held verdict is now out of date. Clearing it before the page
+    // cache means the next read re-checks against what just changed.
+    invalidateSecurityState();
     revalidatePath("/");
     revalidatePath("/app");
     revalidatePath("/app/boundaries");

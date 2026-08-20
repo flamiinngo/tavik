@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { IamParseError, projectIamExport } from "@/lib/ingest/iam";
 import { gate } from "@/lib/server/operator";
-import { seedStarterRules, tavik } from "@/lib/server/tavik";
+import { invalidateSecurityState, seedStarterRules, tavik } from "@/lib/server/tavik";
 
 /**
  * Ingest an AWS IAM account export.
@@ -78,6 +78,9 @@ export async function ingestIamExport(formData: FormData): Promise<IamUploadResu
     await store.insertRelations(projection.relations);
     await seedStarterRules();
 
+    // The held verdict is now out of date. Clearing it before the page
+    // cache means the next read re-checks against what just changed.
+    invalidateSecurityState();
     revalidatePath("/");
     revalidatePath("/app");
     revalidatePath("/app/boundaries");

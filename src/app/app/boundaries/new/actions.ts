@@ -11,7 +11,7 @@ import {
 import { ruleIdFromName } from "@/lib/engine/rule-store";
 import { verifyBoundary } from "@/lib/engine/verify";
 import { gate } from "@/lib/server/operator";
-import { tavik } from "@/lib/server/tavik";
+import { invalidateSecurityState, tavik } from "@/lib/server/tavik";
 
 /**
  * Create a rule, then answer it immediately.
@@ -77,6 +77,9 @@ export async function createRule(formData: FormData): Promise<CreateRuleResult> 
     // Answer it straight away, with the same engine used everywhere else.
     const verification = await verifyBoundary(store, client, rule);
 
+    // The held verdict is now out of date. Clearing it before the page
+    // cache means the next read re-checks against what just changed.
+    invalidateSecurityState();
     revalidatePath("/app");
     revalidatePath("/app/boundaries");
 
@@ -110,6 +113,9 @@ export async function deleteRule(ruleId: string): Promise<{ ok: boolean; message
 
   try {
     await tavik().rules.remove(ruleId);
+    // The held verdict is now out of date. Clearing it before the page
+    // cache means the next read re-checks against what just changed.
+    invalidateSecurityState();
     revalidatePath("/app");
     revalidatePath("/app/boundaries");
     return { ok: true, message: "Rule deleted." };
