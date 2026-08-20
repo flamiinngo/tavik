@@ -22,11 +22,49 @@ import { Button } from "@/components/ui/primitives";
  * It says exactly what goes and what stays, because "are you sure?" asks someone
  * to confirm something they have not been told.
  */
-export function StartFresh({ canReset }: { canReset: boolean }) {
+export function StartFresh({
+  canReset,
+  hosted,
+}: {
+  canReset: boolean;
+  /** True on the public demo, where emptying by hand cannot finish. */
+  hosted: boolean;
+}) {
   const [armed, setArmed] = useState(false);
   const [alsoSignOut, setAlsoSignOut] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
+
+  // On the hosted demo this offers nothing and would strand whoever pressed it.
+  //
+  // HydraDB has no bulk delete, so emptying happens a node at a time at roughly
+  // 1.5 seconds each — around half an hour for a scanned project, against a
+  // serverless function that is killed after five minutes. A visitor would get a
+  // spinner that never finishes and a half-deleted graph, which is a worse
+  // outcome than not offering it. The demo empties itself anyway, so the honest
+  // thing is to say how rather than hand someone a button that cannot work.
+  if (hosted) {
+    return (
+      <div className="rounded-lg bg-card p-5 shadow-card">
+        <h3 className="text-[14px] font-semibold tracking-tight text-ink">
+          This demo resets itself
+        </h3>
+        <p className="mt-2 text-[13.5px] leading-relaxed text-ink-soft">
+          It runs on a free plan with no permanent storage, so after fifteen
+          quiet minutes the database sleeps and the workspace comes back empty.
+          Whoever opens it next starts from nothing and scans whatever they like.
+        </p>
+        <p className="mt-2 text-[13.5px] leading-relaxed text-ink-soft">
+          Emptying it by hand isn&apos;t offered here because it could not
+          finish: HydraDB has no bulk delete, so it would remove a few thousand
+          things one at a time and be cut off long before the end. On your own
+          machine that button is here, and{" "}
+          <code className="font-mono text-ink">npm run reset</code> is quicker
+          still.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-lg border border-alert-line bg-card p-5 shadow-card">

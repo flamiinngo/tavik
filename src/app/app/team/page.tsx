@@ -9,6 +9,7 @@ import {
   ROLES,
   type Permission,
 } from "@/lib/domain/team";
+import { isPublicDemo } from "@/lib/env";
 import { currentOperator } from "@/lib/server/operator";
 import { tavik } from "@/lib/server/tavik";
 
@@ -93,7 +94,7 @@ export default async function TeamPage() {
               </p>
             </Card>
 
-            <StartFresh canReset={can(operator.role, "manageWorkspace")} />
+            <StartFresh canReset={can(operator.role, "manageWorkspace")} hosted={isPublicDemo()} />
           </div>
 
           <Card className="p-5">
