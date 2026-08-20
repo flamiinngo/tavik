@@ -1,0 +1,88 @@
+# HydraDB on Render, so Tavik can be deployed somewhere without a laptop
+# staying awake to hold the database.
+#
+# Deploy with: Render dashboard → New → Blueprint → pick this repository.
+#
+# ── What you are getting ─────────────────────────────────────────────────────
+#
+# A single HydraDB instance on Render's free plan. Two things about that plan
+# are worth knowing before you rely on it, because neither is a bug:
+#
+#   It sleeps after 15 minutes with no traffic. The first request afterwards
+#   waits roughly a minute while the container starts. Tavik shows its
+#   "cannot read your security state" panel during that time, which is the
+#   honest thing for it to show — it genuinely cannot.
+#
+#   There is no persistent disk. Everything the container wrote is gone when it
+#   sleeps, so the workspace comes back empty. For a demo that is arguably
+#   better than a pre-filled one: whoever opens it scans a repository of their
+#   own choosing and watches it happen, rather than reading numbers somebody
+#   else produced.
+#
+# ── On exposing a database to the internet ───────────────────────────────────
+#
+# docker-compose.yml says never to enable GRAPH_ALLOW_PLAINTEXT off-host, and
+# that warning is right for the situation it describes. It is enabled here
+# because Render terminates TLS at its edge: traffic crossing the internet is
+# HTTPS, and the plaintext hop is inside Render's own network between their
+# proxy and this container, which is how every service on the platform works.
+#
+# Authentication is not optional either way — the entrypoint refuses to start
+# without a token, and Render generates a long random one below.
+
+services:
+  - type: web
+    name: tavik-hydradb
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./deploy/hydradb/Dockerfile
+    dockerContext: ./deploy/hydradb
+
+    envVars:
+      # Render routes public traffic to whatever PORT says. HydraDB's HTTP API
+      # is fixed at 8443 and takes no port setting, so Render is told to come to
+      # it rather than the other way round.
+      - key: PORT
+        value: "8443"
+
+      # Generated once by Render and never shown in this file. Copy it out of
+      # the dashboard afterwards — Tavik needs the same value.
+      - key: GRAPH_AUTH_TOKEN
+        generateValue: true
+
+      - key: GRAPH_AUTH_TOKEN_FILE
+        value: /data/auth-token
+
+      # Local object store on the container's own filesystem. No S3 bucket to
+      # create, at the cost of the data not surviving a sleep.
+      - key: CLOUD_PROVIDER
+        value: local
+      - key: LOCAL_PATH
+        value: /data/store
+      - key: GRAPH_DATA_CACHE_DIR
+        value: /data/cache
+
+      - key: GRAPH_NAMESPACE
+        value: default
+      - key: GRAPH_ID
+        value: default
+      - key: GRAPH_CELL_ID
+        value: cell-0
+      - key: GRAPH_CELLS
+        value: cell-0
+      - key: GRAPH_NODE_ID
+        value: node-0
+      - key: GRAPH_BOLT_NODE_ADDRESSES
+        value: node-0=127.0.0.1:7687
+      - key: GRAPH_ADVERTISED_BOLT_ADDR
+        value: 127.0.0.1:7687
+
+      # See the note above on why this is acceptable here and nowhere else.
+      - key: GRAPH_ALLOW_PLAINTEXT
+        value: "true"
+
+      # HydraDB's traversal engine recurses deeply; the image documents this
+      # stack size as the supported minimum.
+      - key: RUST_MIN_STACK
+        value: "33554432"
