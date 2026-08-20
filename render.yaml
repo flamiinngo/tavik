@@ -39,6 +39,18 @@ services:
     dockerfilePath: ./deploy/hydradb/Dockerfile
     dockerContext: ./deploy/hydradb
 
+    # Only rebuild when the database's own files change.
+    #
+    # Without this, Render watches the whole repository and redeploys on every
+    # push — so editing a button in the web app restarted the database, and
+    # because the free plan has no disk, that wiped everything in it. A morning
+    # of front-end commits took the demo down repeatedly for reasons that had
+    # nothing to do with the database.
+    buildFilter:
+      paths:
+        - deploy/hydradb/**
+        - render.yaml
+
     envVars:
       # Render routes public traffic to whatever PORT says. HydraDB's HTTP API
       # is fixed at 8443 and takes no port setting, so Render is told to come to
