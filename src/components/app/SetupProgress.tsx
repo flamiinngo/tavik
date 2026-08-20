@@ -31,7 +31,14 @@ export function SetupProgress({ progress }: { progress: Progress }) {
         {progress.doneCount}/{progress.steps.length}
       </span>
       <span className="text-[13.5px] font-medium text-ink">{next.title}</span>
-      <span className="min-w-0 flex-1 truncate text-[13px] text-ink-soft">{next.why}</span>
+
+      {/* Dropped entirely on a phone rather than truncated to an ellipsis.
+          There is no width for it beside the title and the action, and half a
+          sentence cut off mid-word explains less than nothing — the title and
+          the action already say what to do. */}
+      <span className="hidden min-w-0 flex-1 truncate text-[13px] text-ink-soft sm:block">
+        {next.why}
+      </span>
       <span className="shrink-0 text-[13px] font-medium text-accent">
         {next.action}{" "}
         <span aria-hidden className="inline-block transition-transform group-hover:translate-x-0.5">

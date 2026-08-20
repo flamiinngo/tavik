@@ -51,7 +51,11 @@ export function DemoControl({
           Try it yourself
         </span>
 
-        <div className="min-w-0 flex-1">
+        {/* Takes a row of its own until there is room to share one. Beside a
+            button reading "Put <somebody> under review", which cannot shrink,
+            the text was left about a hundred pixels on a phone — enough to set
+            two or three words per line. */}
+        <div className="min-w-0 basis-full sm:flex-1 sm:basis-auto">
           <h2 className="text-[16px] font-semibold tracking-tight text-ink">
             Watch a rule break, then heal
           </h2>

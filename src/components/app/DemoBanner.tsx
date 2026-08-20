@@ -54,33 +54,16 @@ export function DemoBanner({ scannedProject }: { scannedProject: string | null }
   if (alreadyDismissed || dismissedNow) return null;
 
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-sm bg-ink px-4 py-2.5 text-canvas">
-      <span className="rounded-pill bg-canvas/15 px-2 py-0.5 text-[11px] font-medium tracking-wide uppercase">
-        Live demo
-      </span>
-
-      <span className="min-w-0 flex-1 text-[13.5px] leading-snug">
-        {scannedProject ? (
-          <>
-            Everything here is real. Tavik scanned{" "}
-            <strong className="font-semibold">{scannedProject}</strong> from GitHub
-            and asked the npm registry who can publish each of its packages.
-          </>
-        ) : (
-          <>
-            Nothing has been scanned yet. Give Tavik a public repository and it
-            maps who can reach it.
-          </>
-        )}
-      </span>
-
-      <a
-        href="/app/onboarding"
-        className="shrink-0 text-[13px] font-medium underline underline-offset-4 hover:no-underline"
-      >
-        Scan your own repo →
-      </a>
-
+    // The close button is positioned rather than placed in the flow, and the
+    // text is given a full row of its own until there is space for one line.
+    //
+    // The first version was a single flex row of four items with the sentence
+    // set to flex-1 and the link and button set not to shrink. On a laptop that
+    // reads as one tidy line. On a phone the two fixed items held their width
+    // and the sentence got what was left, which was about forty pixels — one
+    // word per line, twenty lines tall. A banner explaining that the numbers are
+    // real cannot itself look broken.
+    <div className="relative rounded-sm bg-ink py-3 pr-11 pl-4 text-canvas">
       <button
         type="button"
         onClick={() => {
@@ -92,10 +75,41 @@ export function DemoBanner({ scannedProject }: { scannedProject: string | null }
           }
         }}
         aria-label="Dismiss"
-        className="shrink-0 px-1 text-[16px] leading-none text-canvas/60 hover:text-canvas"
+        className="absolute top-1.5 right-1.5 grid size-9 place-items-center rounded-sm text-[18px] leading-none text-canvas/60 hover:text-canvas"
       >
         ×
       </button>
+
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <span className="shrink-0 rounded-pill bg-canvas/15 px-2 py-0.5 text-[11px] font-medium tracking-wide uppercase">
+          Live demo
+        </span>
+
+        {/* `basis-full` until small screens: the sentence takes a row to itself
+            on a phone and shares one with the label and link on a laptop. */}
+        <span className="min-w-0 basis-full text-[13.5px] leading-relaxed sm:flex-1 sm:basis-auto">
+          {scannedProject ? (
+            <>
+              Everything here is real. Tavik scanned{" "}
+              <strong className="font-semibold">{scannedProject}</strong> from
+              GitHub and asked the npm registry who can publish each of its
+              packages.
+            </>
+          ) : (
+            <>
+              Nothing has been scanned yet. Give Tavik a public repository and it
+              maps who can reach it.
+            </>
+          )}
+        </span>
+
+        <a
+          href="/app/onboarding"
+          className="shrink-0 text-[13px] font-medium underline underline-offset-4 hover:no-underline"
+        >
+          Scan your own repo →
+        </a>
+      </div>
     </div>
   );
 }
