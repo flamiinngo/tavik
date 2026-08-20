@@ -2,13 +2,21 @@
 
 import { revalidatePath } from "next/cache";
 
-import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
-
 import { parseLockfile } from "@/lib/ingest/lockfile";
 import { ingestProject } from "@/lib/ingest/pipeline";
 import { gate } from "@/lib/server/operator";
+import { scanRepository } from "./github-actions";
 import { seedStarterRules, tavik } from "@/lib/server/tavik";
+
+/**
+ * The project the sample button reads.
+ *
+ * Small enough to finish while somebody is still watching — around half a
+ * minute — and real enough to find something. It is a widely used package with
+ * a deep development tree, so the routes it turns up are genuine multi-hop
+ * chains rather than a single direct dependency.
+ */
+const SAMPLE_REPOSITORY = "motdotla/dotenv";
 
 /**
  * Ingest a project someone brings themselves.
@@ -40,38 +48,47 @@ export interface IngestUploadResult {
 const MAX_LOCKFILE_BYTES = 12 * 1024 * 1024;
 
 /**
- * Scan this repository, as a sample.
+ * Scan a public project, as an example.
  *
  * A fresh workspace is genuinely empty, which is right — but someone evaluating
- * Tavik in five minutes should not be forced to go and find a lockfile before
- * they can see anything work. This ingests the app's own dependencies, which are
- * real, public, and exactly as messy as anyone else's.
+ * Tavik in five minutes should not have to go and find a lockfile before they
+ * can see anything work.
  *
- * Labelled as a sample everywhere it appears. It is not a fixture — the same
- * pipeline, the same live registry lookups — just a project we can point at
- * without asking for one.
+ * Labelled as an example everywhere it appears. It is not a fixture: the same
+ * pipeline, the same live registry lookups, the same graph — just a project we
+ * can point at without asking for one.
  */
 export async function ingestSampleProject(): Promise<IngestUploadResult> {
   const allowed = await gate("scan");
   if (!allowed.allowed) return { ok: false, message: allowed.reason };
 
-  try {
-    const lockfilePath = resolve(process.cwd(), "package-lock.json");
-    const raw = await readFile(lockfilePath, "utf8");
-    const formData = new FormData();
-    formData.set("contents", raw);
-    formData.set("serviceName", "tavik (sample)");
-    formData.set("environment", "production");
-    return await ingestLockfile(formData);
-  } catch (error) {
-    return {
-      ok: false,
-      message:
-        error instanceof Error
-          ? `Couldn't read the sample project: ${error.message}`
-          : "Couldn't read the sample project.",
-    };
-  }
+  // Reads a public repository rather than Tavik's own lockfile off disk.
+  //
+  // The disk version worked on a developer machine and could not work anywhere
+  // else: it resolved `package-lock.json` from the working directory, and a
+  // dynamic path like that is invisible to Next's file tracing, so the file
+  // never shipped. On the hosted demo the most obvious button on an empty
+  // workspace answered "Couldn't read the sample project" — the worst possible
+  // first impression, and one that only appears once deployed.
+  //
+  // Going through the GitHub path fixes it and is better anyway. A named public
+  // project is easier to explain than a tool scanning itself, and it is the
+  // identical code path someone takes when they paste a repository of their
+  // own — so the button demonstrates the thing it is inviting you to do.
+  const formData = new FormData();
+  formData.set("repo", SAMPLE_REPOSITORY);
+
+  const result = await scanRepository(formData);
+
+  return {
+    ok: result.ok,
+    message: result.message,
+    serviceName: result.repo,
+    packages: result.packages,
+    publishers: result.publishers,
+    elapsedMs: result.elapsedMs,
+    failures: result.failures,
+  };
 }
 
 /**

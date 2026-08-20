@@ -1,11 +1,12 @@
 "use client";
 
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { Tavik } from "@/components/mascot/Tavik";
 import { Button } from "@/components/ui/primitives";
 import { ingestSampleProject } from "@/app/app/onboarding/actions";
+import { scanRepository } from "@/app/app/onboarding/github-actions";
 
 /**
  * What a new workspace looks like.
@@ -15,13 +16,36 @@ import { ingestSampleProject } from "@/app/app/onboarding/actions";
  * screenshot, and reasonably assumes the whole thing is staged. The first
  * numbers anyone sees here are their own.
  *
- * The sample is offered as a second option rather than pre-loaded, because
- * "here is your data" and "here is some data" are very different claims and the
- * difference has to be visible.
+ * The box comes first, and that is the whole point of this screen.
+ *
+ * It used to be two buttons, one of which navigated somewhere else to find the
+ * box. That is a fine arrangement for someone exploring and a poor one for
+ * somebody who arrived wanting to try their own repository — which is the more
+ * valuable visitor, because Tavik finding a route through code they wrote is
+ * worth more than any project we could pick for them. So the fast path is
+ * typing here and pressing return.
+ *
+ * The example stays, underneath, quiet. It is for whoever does not want to type
+ * anything, and it should never be in the way of whoever does.
  */
 export function EmptyWorkspace() {
+  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  const [busy, setBusy] = useState<"repo" | "example" | null>(null);
+  const [, startTransition] = useTransition();
+
+  const run = (what: "repo" | "example", work: () => Promise<{ ok: boolean; message: string }>) => {
+    setBusy(what);
+    setError(null);
+    startTransition(async () => {
+      const result = await work();
+      setBusy(null);
+      if (result.ok) router.refresh();
+      else setError(result.message);
+    });
+  };
+
+  const pending = busy !== null;
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-16 text-center">
@@ -33,46 +57,62 @@ export function EmptyWorkspace() {
       </h2>
 
       <p className="mx-auto mt-6 max-w-md text-[16px] leading-[1.6] text-ink-soft">
-        Tavik hasn&apos;t seen any of your code. Give it a project and it will map
-        every package you depend on, find out who can publish them, and start
-        proving what can reach you.
+        Give Tavik a public repository. It maps every package you depend on,
+        finds out who is allowed to publish them, and starts proving what can
+        reach you.
       </p>
 
-      <div className="mt-9 flex flex-wrap items-center justify-center gap-4">
-        <Link href="/app/onboarding">
-          <Button variant="primary" size="lg">
-            Scan a project <span aria-hidden>↗</span>
-          </Button>
-        </Link>
-
-        <Button
-          size="lg"
+      <form
+        className="mx-auto mt-9 flex max-w-md flex-wrap gap-3"
+        action={(formData) => run("repo", () => scanRepository(formData))}
+      >
+        <input
+          name="repo"
+          placeholder="owner/repository"
+          autoComplete="off"
+          autoFocus
           disabled={pending}
-          onClick={() =>
-            startTransition(async () => {
-              const result = await ingestSampleProject();
-              setError(result.ok ? null : result.message);
-            })
-          }
-        >
-          {pending ? "Scanning sample…" : "Try a sample project"}
+          className="h-12 min-w-48 flex-1 rounded-sm bg-card px-4 text-[15px] text-ink shadow-card placeholder:text-ink-faint focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-60"
+        />
+        <Button type="submit" variant="primary" size="lg" disabled={pending}>
+          {busy === "repo" ? "Scanning…" : "Scan it"}
         </Button>
-      </div>
+      </form>
 
-      {pending ? (
-        <p className="mt-5 text-[13.5px] text-ink-subtle">
-          Asking the npm registry about every package. Takes about a minute — the
-          requests are real.
+      {busy === "repo" ? (
+        <p className="mt-5 text-[13.5px] leading-relaxed text-ink-subtle">
+          Reading the lockfile, then asking the npm registry about every package
+          in it. Around half a minute — the requests are real.
         </p>
       ) : (
-        <p className="mt-5 text-[13px] text-ink-faint">
-          The sample scans Tavik&apos;s own dependencies. Same pipeline, same live
-          registry — just a project you don&apos;t have to go and find.
+        <p className="mt-4 text-[13px] text-ink-faint">
+          Any public repository. Tavik finds the lockfile itself, and also reads
+          <code className="mx-1 font-mono">.github/workflows</code>
+          to see whose code runs in your CI.
         </p>
       )}
 
+      {/* Secondary on purpose, and separated by a rule so it reads as the
+          alternative rather than a second instruction. */}
+      <div className="mx-auto mt-10 max-w-md border-t border-line pt-6">
+        <p className="text-[13.5px] text-ink-soft">
+          Nothing to hand?{" "}
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => run("example", ingestSampleProject)}
+            className="font-medium text-accent underline-offset-4 hover:underline disabled:opacity-60"
+          >
+            {busy === "example" ? "Scanning an example…" : "Try one we picked"}
+          </button>
+        </p>
+        <p className="mt-1.5 text-[12.5px] text-ink-faint">
+          A real public project, scanned live. Not a fixture.
+        </p>
+      </div>
+
       {error ? (
-        <p className="mx-auto mt-5 max-w-md rounded-sm bg-alert-soft px-4 py-3 text-[13.5px] text-alert">
+        <p className="mx-auto mt-6 max-w-md rounded-sm bg-alert-soft px-4 py-3 text-[13.5px] leading-relaxed text-alert">
           {error}
         </p>
       ) : null}
