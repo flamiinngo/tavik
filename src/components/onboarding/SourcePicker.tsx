@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/primitives";
+import { useHydrated } from "@/lib/use-hydrated";
 import { ingestLockfile, type IngestUploadResult } from "@/app/app/onboarding/actions";
 import { scanRepository, type ScanRepoResult } from "@/app/app/onboarding/github-actions";
 import { ingestIamExport, type IamUploadResult } from "@/app/app/onboarding/iam-actions";
@@ -73,6 +74,9 @@ export function SourcePicker() {
 function GitHubForm() {
   const [result, setResult] = useState<ScanRepoResult | null>(null);
   const [pending, startTransition] = useTransition();
+  // Drawn by the server, not clickable until the browser has the code. Saying
+  // so beats a button that silently swallows the first click.
+  const ready = useHydrated();
 
   if (result?.ok) {
     return (
@@ -117,7 +121,7 @@ function GitHubForm() {
 
       {pending ? <Working /> : null}
 
-      <Button type="submit" variant="primary" size="lg" disabled={pending} className="mt-6 w-full">
+      <Button type="submit" variant="primary" size="lg" disabled={pending || !ready} className="mt-6 w-full">
         {pending ? "Scanning…" : "Scan this repository"}
       </Button>
     </form>
@@ -130,6 +134,9 @@ function LockfileForm() {
   const [result, setResult] = useState<IngestUploadResult | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  // Drawn by the server, not clickable until the browser has the code. Saying
+  // so beats a button that silently swallows the first click.
+  const ready = useHydrated();
 
   if (result?.ok) {
     return (
@@ -196,7 +203,7 @@ function LockfileForm() {
       {result && !result.ok ? <Problem message={result.message} /> : null}
       {pending ? <Working /> : null}
 
-      <Button type="submit" variant="primary" size="lg" disabled={pending} className="mt-6 w-full">
+      <Button type="submit" variant="primary" size="lg" disabled={pending || !ready} className="mt-6 w-full">
         {pending ? "Scanning…" : "Scan this project"}
       </Button>
     </form>
@@ -209,6 +216,9 @@ function CloudForm() {
   const [result, setResult] = useState<IamUploadResult | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  // Drawn by the server, not clickable until the browser has the code. Saying
+  // so beats a button that silently swallows the first click.
+  const ready = useHydrated();
 
   if (result?.ok) {
     return (
@@ -268,7 +278,7 @@ function CloudForm() {
       {result && !result.ok ? <Problem message={result.message} /> : null}
       {pending ? <Working /> : null}
 
-      <Button type="submit" variant="primary" size="lg" disabled={pending} className="mt-6 w-full">
+      <Button type="submit" variant="primary" size="lg" disabled={pending || !ready} className="mt-6 w-full">
         {pending ? "Importing…" : "Import this account"}
       </Button>
     </form>
@@ -355,11 +365,14 @@ function Working() {
 function SeeWhatItFound() {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  // Drawn by the server, not clickable until the browser has the code. Saying
+  // so beats a button that silently swallows the first click.
+  const ready = useHydrated();
 
   return (
     <Button
       variant="primary"
-      disabled={pending}
+      disabled={pending || !ready}
       onClick={() => startTransition(() => router.push("/app"))}
     >
       {pending ? (

@@ -7,6 +7,7 @@ import { Tavik } from "@/components/mascot/Tavik";
 import { Button } from "@/components/ui/primitives";
 import { ingestSampleProject } from "@/app/app/onboarding/actions";
 import { scanRepository } from "@/app/app/onboarding/github-actions";
+import { useHydrated } from "@/lib/use-hydrated";
 
 /**
  * What a new workspace looks like.
@@ -45,7 +46,9 @@ export function EmptyWorkspace() {
     });
   };
 
-  const pending = busy !== null;
+  // Not clickable until the browser has taken the page over.
+  const ready = useHydrated();
+  const pending = busy !== null || !ready;
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-16 text-center">

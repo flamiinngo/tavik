@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/primitives";
+import { useHydrated } from "@/lib/use-hydrated";
 import { setPublisherTrust, type DemoResult } from "@/app/app/demo-actions";
 
 /**
@@ -35,6 +36,7 @@ export function DemoControl({
 }) {
   const [result, setResult] = useState<DemoResult | null>(null);
   const [pending, startTransition] = useTransition();
+  const ready = useHydrated();
 
   const run = (trust: "quarantined" | "untrusted") =>
     startTransition(async () => {
@@ -67,11 +69,11 @@ export function DemoControl({
 
         <div className="flex shrink-0 flex-wrap items-center gap-3">
           {isQuarantined ? (
-            <Button variant="secondary" disabled={pending} onClick={() => run("untrusted")}>
+            <Button variant="secondary" disabled={pending || !ready} onClick={() => run("untrusted")}>
               {pending ? "Re-checking…" : "Finish the review"}
             </Button>
           ) : (
-            <Button variant="primary" disabled={pending} onClick={() => run("quarantined")}>
+            <Button variant="primary" disabled={pending || !ready} onClick={() => run("quarantined")}>
               {pending ? "Checking…" : `Put ${publisher} under review`}
             </Button>
           )}
