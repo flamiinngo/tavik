@@ -311,6 +311,33 @@ export async function loadBoundary(id: string): Promise<{
 }
 
 /**
+ * What this workspace has scanned, for saying so out loud.
+ *
+ * The public demo tells a first-time visitor which repository the numbers in
+ * front of them came from. Read from the graph rather than written into the
+ * banner, because a banner naming a project nobody scanned would be exactly the
+ * invented-data problem the product refuses everywhere else.
+ */
+export async function scannedServiceName(): Promise<string | null> {
+  try {
+    const urns = await tavik().store.resolveSelector({
+      kind: "Service",
+      property: "environment",
+      value: "production",
+      description: "services in production",
+    });
+
+    // URNs are `tavik:service:<name>`.
+    const names = urns.map((urn) => String(urn).split(":").slice(2).join(":")).filter(Boolean);
+    if (names.length === 0) return null;
+    if (names.length === 1) return names[0];
+    return `${names[0]} and ${names.length - 1} more`;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * A publisher the demo control can actually act on.
  *
  * Picked from the graph in front of us rather than named in the source. It used

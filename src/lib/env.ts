@@ -57,6 +57,21 @@ export function hydraEnv(): HydraEnv {
   };
 }
 
+/**
+ * True when this is the public demo rather than somebody's own install.
+ *
+ * Changes two things and nothing else: a stranger gets one line explaining what
+ * they are looking at, and a database that is not answering is described as
+ * probably hibernating rather than probably broken — which on a free plan that
+ * sleeps after fifteen minutes is simply the more likely explanation.
+ *
+ * Off by default. Someone running Tavik on their own machine does not need a
+ * caption on their own dashboard.
+ */
+export function isPublicDemo(): boolean {
+  return process.env.TAVIK_PUBLIC_DEMO === "true";
+}
+
 /** True when Tavik should surface the labelled demo environment controls. */
 export function demoModeEnabled(): boolean {
   return process.env.TAVIK_DEMO_MODE !== "false";

@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/primitives";
@@ -313,11 +313,7 @@ function Done({
       ) : null}
 
       <div className="mt-8 flex flex-wrap gap-3">
-        <Link href="/app">
-          <Button variant="primary">
-            See what it found <span aria-hidden>↗</span>
-          </Button>
-        </Link>
+        <SeeWhatItFound />
         <Button onClick={onReset}>Scan something else</Button>
       </div>
     </div>
@@ -340,5 +336,45 @@ function Working() {
       <span className="size-1.5 animate-breathe rounded-pill bg-accent" aria-hidden />
       Asking the registry about every package. A minute or so — the requests are real.
     </p>
+  );
+}
+
+/**
+ * The button off this screen, with something to look at while it works.
+ *
+ * A plain link here felt broken. The dashboard it navigates to verifies every
+ * rule before it can render a single number, and against a database across the
+ * internet that is seconds of nothing — so the button looked dead and people
+ * clicked it again, which does not help. The work was always happening; nothing
+ * said so.
+ *
+ * Not a spinner over the whole page: the numbers from the scan are the thing
+ * someone is reading, and covering them to announce a page change would be a
+ * worse trade.
+ */
+function SeeWhatItFound() {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+
+  return (
+    <Button
+      variant="primary"
+      disabled={pending}
+      onClick={() => startTransition(() => router.push("/app"))}
+    >
+      {pending ? (
+        <>
+          <span
+            aria-hidden
+            className="mr-1 inline-block size-3 animate-spin rounded-pill border-2 border-current border-t-transparent"
+          />
+          Checking your rules…
+        </>
+      ) : (
+        <>
+          See what it found <span aria-hidden>↗</span>
+        </>
+      )}
+    </Button>
   );
 }

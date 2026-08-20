@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 
 import { Card } from "@/components/ui/Card";
@@ -88,12 +89,15 @@ export function DemoControl({
             {result.message}
           </p>
           {result.status === "violated" ? (
-            <a
+            // A plain anchor here reloaded the whole application to move one
+            // screen, which is slow anywhere and painful against a database
+            // across the internet.
+            <Link
               href="/app/boundaries/blocked-publishers"
               className="mt-2 inline-block text-[14px] font-medium text-accent underline-offset-4 hover:underline"
             >
               See the routes and approve a fix →
-            </a>
+            </Link>
           ) : null}
         </div>
       ) : null}

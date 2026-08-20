@@ -2,6 +2,8 @@ import Link from "next/link";
 
 import { EmptyWorkspace } from "@/components/app/EmptyWorkspace";
 import { SetupProgress } from "@/components/app/SetupProgress";
+import { DatabaseWaking } from "@/components/app/DatabaseWaking";
+import { DemoBanner } from "@/components/app/DemoBanner";
 import { lastSweepAt } from "@/lib/engine/scheduler";
 import { DemoControl } from "@/components/demo/DemoControl";
 import { PathTrace } from "@/components/graph/PathTrace";
@@ -11,9 +13,11 @@ import { Card, CardHeader, GroupLabel, HealthBar, StatusRow } from "@/components
 import { STATUS_PRESENTATION, StatusChip } from "@/components/ui/Status";
 import { Button, EmptyState, Timestamp } from "@/components/ui/primitives";
 import { buildSubgraph, chokepoints } from "@/lib/domain/subgraph";
+import { isPublicDemo } from "@/lib/env";
 import { currentOperator } from "@/lib/server/operator";
 import {
   demoPublisher,
+  scannedServiceName,
   isWorkspaceEmpty,
   loadSecurityState,
   loadSetupProgress,
@@ -76,6 +80,16 @@ export default async function OverviewPage() {
           <h1 className="text-[15px] font-semibold tracking-tight text-ink">Overview</h1>
         </header>
         <main className="w-full">
+          {/* Also here, and arguably most of all here. The demo runs on a free
+              plan with no persistent disk, so it comes back empty after every
+              nap — which means an empty workspace is the *likely* first thing a
+              stranger sees, not an edge case. Without this they get a mascot and
+              no idea what any of it is. */}
+          {isPublicDemo() ? (
+            <div className="px-6 pt-2 lg:px-8">
+              <DemoBanner scannedProject={null} />
+            </div>
+          ) : null}
           <EmptyWorkspace />
         </main>
       </>
@@ -91,6 +105,9 @@ export default async function OverviewPage() {
     loadSetupProgress(operator.identified),
     demoPublisher(),
   ]);
+
+  // Named in the demo banner so a stranger knows whose numbers these are.
+  const scannedProject = state.boundaries.length > 0 ? await scannedServiceName() : null;
 
   const critical = state.boundaries.find((e) => e.verification?.status === "violated");
   const headline = critical ?? state.boundaries[0];
@@ -128,19 +145,12 @@ export default async function OverviewPage() {
         {/* Above everything, until it is finished. Somebody who has not wired
             Tavik into CI has a half-installed product, and that matters more
             than today's numbers. */}
+        {isPublicDemo() ? <DemoBanner scannedProject={scannedProject} /> : null}
+
         <SetupProgress progress={setup} />
 
         {state.connectionError ? (
-          <Card className="p-6">
-            <StatusChip status="unknown" />
-            <p className="mt-3 text-[17px] font-semibold text-ink">
-              Tavik can&apos;t read your security state
-            </p>
-            <p className="mt-1.5 max-w-2xl text-[14px] text-ink-soft">
-              Every rule is marked <strong className="text-ink">not checked</strong> — which
-              is not the same as safe.
-            </p>
-          </Card>
+          <DatabaseWaking reason={state.connectionError} hosted={isPublicDemo()} />
         ) : null}
 
         {/* ── The answer ──────────────────────────────────────────────────────
