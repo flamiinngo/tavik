@@ -50,3 +50,5 @@ next-env.d.ts
 
 # Dev server output, written by `npm run dev`.
 dev.log
+
+.vercel
