@@ -26,6 +26,18 @@ jobs:
 
       - run: npm ci
 
+      # Build first, and not for the usual reason.
+      #
+      # Next generates `next-env.d.ts` and `.next/types/` during a build, and
+      # those are what declare `PageProps`, `LayoutProps`, and the module types
+      # that make `import mascot from "…/tavik.png"` resolve. Both are generated
+      # artefacts and correctly gitignored, so on a clean checkout they do not
+      # exist yet — running `tsc` before a build reported eleven errors that do
+      # not exist on any developer's machine, where a previous build has always
+      # left them behind.
+      - name: Build
+        run: npm run build
+
       - name: Types
         run: npm run typecheck
 
@@ -34,6 +46,3 @@ jobs:
         # integration test skips itself when it cannot reach one, which is why it
         # is safe to include here.
         run: npm test
-
-      - name: Build
-        run: npm run build
