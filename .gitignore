@@ -52,3 +52,7 @@ next-env.d.ts
 dev.log
 
 .vercel
+
+# Working memory. Local only — it holds notes, URLs and contact details that
+# have no business on a public repo.
+memory/

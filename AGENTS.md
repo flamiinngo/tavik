@@ -19,8 +19,11 @@ stopped.
 
 Companion documents:
 
-- `memory/` — **working memory. Read `memory/MEMORY.md` first.** Durable project
-  facts, current state, and what is blocked. Keep it updated as you work.
+- `memory/` — **working memory, if you have it. Read `memory/MEMORY.md` first.**
+  Durable project facts, current state, and what is blocked. Keep it updated as
+  you work. Not in the repository — it is gitignored, because it holds notes and
+  contact details that do not belong on a public clone. If the folder is not
+  there, everything you actually need is in the three documents below.
 - `docs/hydra.md` — HydraDB integration, schema, and the constraints that shaped it
 - `docs/decisions.md` — decision log, including assumptions that proved false
 - `docs/architecture.md` — the end-to-end pipeline and how a team uses the product
